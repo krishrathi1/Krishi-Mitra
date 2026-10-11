@@ -135,34 +135,68 @@
             "solutions": "Suggested Solutions",
             "readDocs": "Read Docs",
             "watchVideo": "Watch Video",
-            "resultPlaceholder": "Your diagnosis result will appear here."
+            "resultPlaceholder": "Your diagnosis result will appear here.",
+            "lowConfidenceWarning": "A reliable crop disease could not be identified from this image. Please upload a clear, close-up photo of the affected plant leaf.",
+            "cropLabel": "Crop",
+            "diseaseLabel": "Disease",
+            "confidenceLabel": "Confidence Score",
+            "symptomsLabel": "Observed Symptoms",
+            "managementLabel": "Recommended Management",
+            "preventionLabel": "Preventive Measures",
+            "sourceLabel": "Pathology Source",
+            "retryButton": "Try Another Photo"
         }
     },
     "marketAnalyst": {
         "title": "Market Analyst",
-        "description": "Get real-time market price analysis and recommendations. Ask a question like \"What is the price of onions in Pune Mandi?\"",
+        "description": "Track live and historical APMC mandi market prices across India.",
         "faqTitle": "Frequently Asked Questions",
-        "faqs": {
-            "q1": "What kind of questions can I ask?",
-            "a1": "You can ask about current crop prices in specific locations, price trends, and get recommendations on whether to sell or hold your produce. For example: 'What is the price of tomatoes in Pune?' or 'Should I sell my wheat stock now?'",
-            "q2": "How accurate is the price information?",
-            "a2": "The price information is based on real-time data from various agricultural markets (mandis). While we strive for accuracy, prices can fluctuate rapidly. Use the information as a guide for your decisions.",
-            "q3": "Can I ask about future price predictions?",
-            "a3": "Yes, you can ask for price trend analysis and predictions. The AI will provide insights based on historical data and current market conditions, but please note that these are forecasts and not guarantees.",
-            "q4": "What locations and crops are supported?",
-            "a4": "The assistant covers a wide range of major crops and markets across India. You can ask about vegetables, grains, fruits, and more in various cities and their main agricultural markets."
+        "tabs": {
+            "livePrices": "Live Prices",
+            "priceAlerts": "Price Alerts"
         },
-        "client": {
-            "askTitle": "Ask Your Market Question",
-            "placeholder": "e.g., What are the chances of tomato prices increasing in the next week in Bangalore? Or click the mic to speak.",
-            "analyzing": "Analyzing...",
-            "getAnalysis": "Get Analysis",
-            "stopRecording": "Stop Recording",
-            "useVoice": "Use Voice",
-            "resultTitle": "Analysis Result",
-            "recommendation": "Recommendation",
-            "marketAnalysis": "Market Analysis",
-            "resultPlaceholder": "Your market analysis will appear here."
+        "livePrices": {
+            "title": "Live APMC Mandi Prices",
+            "officialAgmarknetFeed": "Official Agmarknet Feed",
+            "subtitlePrefix": "Real-time daily modal transactions from",
+            "fetchingMandis": "Fetching Mandis...",
+            "refreshLivePrices": "Refresh Live Prices",
+            "selectState": "1. Select State",
+            "selectDistrict": "2. Select District",
+            "selectCrop": "3. Select Crop",
+            "searchMandiCrop": "4. Search Mandi / Crop",
+            "searchPlaceholder": "Search Crop or Mandi (e.g. Wheat, Indore, Tomato)...",
+            "allStates": "All States",
+            "allDistricts": "All Districts",
+            "allCrops": "All Crops",
+            "allSources": "All Sources",
+            "stateLabel": "State",
+            "districtLabel": "District",
+            "cropLabel": "Crop",
+            "matchingMandis": "Matching Mandis",
+            "showingRecords": "Showing {{count}} authentic records",
+            "resetFilters": "Reset All Filters",
+            "officialRates": "Official APMC Mandi Rates",
+            "offlineBenchmark": "Offline Benchmark Mode",
+            "commodityVariety": "Commodity & Variety",
+            "mandiYard": "Mandi Market Yard",
+            "arrivalDate": "Arrival Date",
+            "modalPrice": "Modal Price (₹/Q)",
+            "minMaxPrice": "Min - Max (₹/Q)",
+            "officialSource": "Official Source",
+            "noRecordsFound": "No commodities found matching current filters.",
+            "unavailableMessage": "Live market price data is currently unavailable.",
+            "retry": "Retry"
+        },
+        "faqs": {
+            "q1": "How often are these Mandi rates updated?",
+            "a1": "Rates are updated daily directly from the official Agmarknet and state APMC agricultural market servers.",
+            "q2": "What does Modal Price mean?",
+            "a2": "Modal price represents the price at which the highest volume of that crop was traded in that specific mandi during the day.",
+            "q3": "Can I set price alerts for my crops?",
+            "a3": "Yes, visit the Price Alerts tab to set automated notification triggers when your crop hits your target selling price.",
+            "q4": "Are these rates official across India?",
+            "a4": "Yes, these rates come from official government APMC market yard transactions across all states."
         }
     },
     "schemes": {
@@ -219,7 +253,23 @@
             "eligibility": "Eligibility",
             "applyNow": "Apply Now",
             "resultPlaceholder": "Ask a question to see scheme details here."
-        }
+        },
+        "headerTitle": "Indian Government Agricultural Schemes",
+        "headerSubtitle": "Explore central and state farmer schemes across India with full eligibility criteria, required document checklists, and verified application guides.",
+        "directoryBadge": "National Farmers Direct Benefit Directory",
+        "inPageGuides": "In-Page Application Guides",
+        "backToDashboard": "Back to Dashboard",
+        "selectState": "Select State",
+        "selectCategory": "Select Category",
+        "searchPlaceholder": "Search scheme name, benefit, or keywords...",
+        "centralSchemes": "Central Schemes",
+        "stateSchemes": "State Schemes",
+        "viewDetails": "View Scheme Details",
+        "closeDetails": "Close Scheme Details",
+        "officialPortal": "Official Portal",
+        "verifiedSource": "Verified Source",
+        "verifiedDate": "Verified: Jan 15, 2025",
+        "noSchemesFound": "No verified schemes found matching your search criteria."
     },
     "weather": {
         "title": "Live Weather Forecast",
@@ -359,7 +409,25 @@
                 "cowManure": "Cow Manure (50kg)",
                 "neemOil": "Neem Oil Pesticide"
             }
-        }
+        },
+        "searchHeader": "Search Equipment Needed & Location",
+        "searchSubheader": "Instant matching across authorized dealerships, stores & local farmer rentals",
+        "whichEquipment": "1. Which Equipment do you need?",
+        "equipmentPlaceholder": "Type equipment (e.g. Small Tractor, Rotavator, Power Tiller, Harvester...)",
+        "enterLocation": "2. Enter Your Location (City, District, State)",
+        "locationPlaceholder": "Enter your City, District, Village or State (e.g. Pune, Dehradun, Lucknow...)",
+        "detectLocation": "Detect Location",
+        "detecting": "Detecting...",
+        "showingResultsFor": "Showing results for:",
+        "in": "in",
+        "storesToBuy": "Stores to Buy",
+        "machineryOnRent": "Machinery on Rent",
+        "openGoogleMaps": "Open Live Stores on Google Maps",
+        "reset": "Reset",
+        "nearbyStores": "Nearby Stores (Buy Equipment)",
+        "rentEquipmentNearby": "Rent Equipment Nearby",
+        "giveOnRent": "Give Equipment on Rent (+ List Yours)",
+        "noNearbyStores": "No nearby stores were found for this equipment and location."
     },
     "learn": {
         "title": "E-Learning Hub",
@@ -710,7 +778,17 @@
                 "rabi": "Rabi",
                 "zaid": "Zaid"
             },
-            "keyBenefits": "Key Benefits"
+            "keyBenefits": "Key Benefits",
+            "analyzing": "AI is analyzing your farm conditions...",
+            "insufficientData": "No crops passed the agronomic eligibility criteria for the given soil, season, and water conditions. Please verify your inputs.",
+            "emptyStateDesc": "Please select your location on the map and click 'Get Recommendations' to analyze agronomic suitability.",
+            "soilPh": "Soil pH (Optional)",
+            "soilPhPlaceholder": "e.g., 6.5 - 7.5",
+            "growingPeriod": "Growing Period",
+            "importantConsiderations": "Important Considerations",
+            "dataSources": "Data Sources",
+            "aiSuitabilityScore": "AI Suitability Score",
+            "indicativeScore": "Indicative score based on the information provided."
         }
     },
     "locationPicker": {

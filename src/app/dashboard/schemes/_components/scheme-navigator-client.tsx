@@ -68,7 +68,7 @@ export function SchemeNavigatorClient() {
     recognition.interimResults = false;
     
     // Set language for speech recognition
-    const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', kn: 'kn-IN', bn: 'bn-IN', bho: 'bho-IN' };
+    const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', mr: 'mr-IN', bn: 'bn-IN', ta: 'ta-IN', kn: 'kn-IN', bho: 'bho-IN' };
     recognition.lang = langMap[language] || 'en-IN';
 
     recognition.onstart = () => {
@@ -138,7 +138,7 @@ export function SchemeNavigatorClient() {
             <div className="border-t pt-4 space-y-3">
                 <div>
                   <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 mb-1">
-                    AI Recommended Scheme
+                    {language === 'hi' ? "एआई अनुशंसित योजना" : "AI Recommended Scheme"}
                   </Badge>
                   <h3 className="font-bold text-sm text-foreground">{result.schemeName}</h3>
                 </div>
@@ -149,22 +149,38 @@ export function SchemeNavigatorClient() {
                     <AlertDescription className="text-xs text-foreground mt-0.5">{result.eligibility}</AlertDescription>
                 </Alert>
                 <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1.5 border border-border/60">
-                  <span className="font-bold text-foreground block">📄 In-Page Application Steps:</span>
-                  <p className="text-[11px] text-muted-foreground">1. Keep your Aadhaar, Land Record (Khatauni/7-12), and Bank Passbook ready.</p>
-                  <p className="text-[11px] text-muted-foreground">2. Visit your local Common Service Centre (CSC) or Gram Panchayat office.</p>
-                  <p className="text-[11px] text-muted-foreground">3. Submit Aadhaar eKYC for direct bank account seeding.</p>
+                  <span className="font-bold text-foreground block">
+                    {language === 'hi' ? "📄 आवेदन के आवश्यक चरण:" : "📄 In-Page Application Steps:"}
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    {language === 'hi' 
+                      ? "1. अपना आधार कार्ड, भूमि रिकॉर्ड (खतौनी/7-12) और बैंक पासबुक तैयार रखें।" 
+                      : "1. Keep your Aadhaar, Land Record (Khatauni/7-12), and Bank Passbook ready."}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {language === 'hi' 
+                      ? "2. अपने नजदीकी सीएससी (जन सेवा केंद्र) या ग्राम पंचायत कार्यालय जाएं।" 
+                      : "2. Visit your local Common Service Centre (CSC) or Gram Panchayat office."}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {language === 'hi' 
+                      ? "3. सीधे बैंक खाते में सहायता राशि प्राप्त करने हेतु आधार ई-केवाईसी पूरा करें।" 
+                      : "3. Submit Aadhaar eKYC for direct bank account seeding."}
+                  </p>
                 </div>
                 <Button 
                   onClick={() => {
                     toast({
-                      title: "✅ Scheme Saved to Profile",
-                      description: `${result.schemeName} guidance saved. Follow the in-page checklist to apply!`,
+                      title: language === 'hi' ? "✅ योजना प्रोफ़ाइल में सहेजी गई" : "✅ Scheme Saved to Profile",
+                      description: language === 'hi' 
+                        ? `${result.schemeName} मार्गदर्शन सहेजा गया। आवेदन के लिए चेकलिस्ट का पालन करें!` 
+                        : `${result.schemeName} guidance saved. Follow the in-page checklist to apply!`,
                     });
                   }}
                   className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-9"
                 >
                   <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                  Save Scheme Checklist
+                  {language === 'hi' ? "योजना चेकलिस्ट सहेजें" : "Save Scheme Checklist"}
                 </Button>
             </div>
         )}

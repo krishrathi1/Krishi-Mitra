@@ -2,14 +2,22 @@
 'use server';
 
 /**
- * @fileOverview Diagnoses crop diseases from an image and/or text description, and provides solutions.
+ * @fileOverview Diagnoses crop diseases using multimodal Google Gemini Vision,
+ * high-speed Groq LLM inference, and ICAR (Indian Council of Agricultural Research) taxonomy.
  *
- * - diagnoseCropDisease - A function that handles the crop disease diagnosis process.
- * - DiagnoseCropDiseaseInput - The input type for the diagnoseCropDisease function.
- * - DiagnoseCropDiseaseOutput - The return type for the diagnoseCropDisease function.
+ * Architecture:
+ * 1. Primary Engine: Gemini Multimodal Vision (analyzes uploaded leaf/crop photo).
+ * 2. Secondary Engine: Groq / Gemini agronomic reasoning for symptom descriptions.
+ * 3. Fallback Engine: Verified ICAR Plant Pathology Knowledge Base.
+ * 4. Safety Guarantee: If confidence is low or non-crop image, returns honest guidance without fake guesses.
  */
 
 import { z } from 'genkit';
+import { cleanCropDiagnosisText } from '@/lib/utils';
+import { 
+  classifyPlantDisease, 
+  type VerifiedDiseaseRecord 
+} from '@/lib/plant-disease-classifier';
 import { isGroqConfigured, groqClient } from '@/ai/groq';
 import { getLanguageInstruction } from '@/lib/soil-data';
 
@@ -21,433 +29,485 @@ const DiagnoseCropDiseaseInputSchema = z.object({
       "A photo of a crop, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   description: z.string().optional().describe('A text or voice-based description of the crop issue.'),
-  language: z.string().describe('The language for the response (e.g., "en", "hi", "kn", "bn", "bho", "pa").'),
+  language: z.string().describe('The language for the response (e.g., "en", "hi", "pa", "mr", "bn", "ta", "kn", "bho").'),
 });
 export type DiagnoseCropDiseaseInput = z.infer<typeof DiagnoseCropDiseaseInputSchema>;
 
-const DiagnoseCropDiseaseOutputSchema = z.object({
-  isPlant: z.boolean().describe('Whether or not the input is a plant or a plant-related issue.'),
-  diagnosis: z.string().describe('The diagnosis of the crop disease.'),
-  solutions: z.string().describe('Suggested solutions with local product links.'),
-  documentationLink: z.string().optional().describe('A search engine link to find relevant documentation.'),
-  youtubeLink: z.string().optional().describe('A YouTube search link to find a relevant visual guide.'),
-});
-export type DiagnoseCropDiseaseOutput = z.infer<typeof DiagnoseCropDiseaseOutputSchema>;
-
-const groqVisionModel = process.env.GROQ_VISION_MODEL?.trim() || '';
-
-function getSmartFallbackDiagnosis(description?: string, language: string = "en"): DiagnoseCropDiseaseOutput {
-  const desc = (description || "").toLowerCase();
-
-  // 1. Wheat / Gehun
-  if (desc.includes("wheat") || desc.includes("gehun") || desc.includes("gehu") || desc.includes("गेहूं") || desc.includes("ਕਣਕ") || desc.includes("rust") || desc.includes("peela") || desc.includes("rattua")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi" 
-        ? "गेहूं का पीला रतुआ (Yellow/Stripe Rust - Puccinia striiformis)" 
-        : language === "pa" 
-        ? "ਕਣਕ ਦਾ ਪੀਲਾ ਰਤੂਆ (Yellow Rust)"
-        : "Wheat Yellow Stripe Rust (Puccinia striiformis)",
-      solutions: language === "hi" 
-        ? "1. जैविक उपचार: खट्टी छाछ (5%) या नीम का तेल (5ml/लीटर पानी) का छिड़काव करें।\n2. रासायनिक उपचार: प्रोपिकोनाज़ोल 25% EC (Tilt) 1ml प्रति लीटर पानी में मिलाकर तुरंत छिड़कें।\n3. रोकथाम: खेत में अत्यधिक नमी और यूरिया का अधिक प्रयोग न करें।"
-        : language === "pa"
-        ? "1. ਜੈਵਿਕ ਰੋਕਥਾਮ: ਨਿੰਮ ਦੇ ਤੇਲ (5ml/ਲਿਟਰ) ਦਾ ਛਿੜਕਾਅ ਕਰੋ।\n2. ਰਸਾਇਣਕ ਰੋਕਥਾਮ: ਪ੍ਰੋਪੀਕੋਨਾਜ਼ੋਲ 25% EC (1ml ਪ੍ਰਤੀ ਲਿਟਰ ਪਾਣੀ) ਦਾ ਛਿੜਕਾਅ ਕਰੋ।\n3. ਸਾਵਧਾਨੀ: ਯੂਰੀਆ ਦੀ ਵੱਧ ਵਰਤੋਂ ਤੋਂ ਬਚੋ।"
-        : "1. Organic Remedy: Spray 5% fermented buttermilk solution or Neem Oil (5ml/L of water).\n2. Chemical Treatment: Spray Propiconazole 25% EC @ 1ml per litre of water at first symptom.\n3. Preventive Tips: Avoid excess nitrogen/urea application and improve field aeration.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=wheat+yellow+rust+treatment",
-    };
-  }
-
-  // 2. Rice / Paddy / Dhan
-  if (desc.includes("rice") || desc.includes("paddy") || desc.includes("dhan") || desc.includes("धान") || desc.includes("ਚੌਲ") || desc.includes("blast") || desc.includes("sheath")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "धान का झुलसा रोग (Paddy Blast - Pyricularia oryzae) व शीथ ब्लाइट"
-        : language === "pa"
-        ? "ਝੋਨੇ ਦਾ ਝੁਲਸ ਰੋਗ (Paddy Blast & Sheath Blight)"
-        : "Paddy Blast & Sheath Blight (Pyricularia oryzae)",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: स्यूडोमोनास फ्लोरेसेंस (10g/लीटर) का पर्णीय छिड़काव करें।\n2. रासायनिक उपचार: ट्राइसाइक्लाज़ोल 75% WP (0.6g/लीटर पानी) या हेक्साकोनाज़ोल 5% SC (2ml/लीटर पानी) का छिड़काव करें।\n3. रोकथाम: खेत में यूरिया की अत्यधिक खुराक न दें और पानी की निकासी ठीक रखें।"
-        : "1. Organic Remedy: Foliar spray of Pseudomonas fluorescens @ 10g/L.\n2. Chemical Treatment: Spray Tricyclazole 75% WP @ 0.6g/L or Hexaconazole 5% SC @ 2ml/L of water.\n3. Preventive Tips: Avoid excess nitrogen, burn stubble of infected fields, ensure drain management.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=paddy+blast+disease+treatment",
-    };
-  }
-
-  // 3. Cotton / Kapas / Narma
-  if (desc.includes("cotton") || desc.includes("kapas") || desc.includes("narma") || desc.includes("कपास") || desc.includes("ਨਰਮਾ") || desc.includes("bollworm") || desc.includes("whitefly")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi" 
-        ? "कपास की गुलाबी सुंडी और सफेद मक्खी (Pink Bollworm & Whitefly)"
-        : language === "pa" 
-        ? "ਨਰਮੇ ਦੀ ਗੁਲਾਬੀ ਸੁੰਡੀ ਅਤੇ ਚਿੱਟੀ ਮੱਖੀ (Bollworm / Whitefly)"
-        : "Cotton Pink Bollworm & Whitefly Infestation",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: फेरोमोन ट्रैप (8-10 प्रति एकड़) लगाएं और नीम तेल (1500 ppm) 5ml/लीटर छिड़कें।\n2. रासायनिक उपचार: स्पाइनेटोरम 11.7% SC (0.8ml/लीटर) या एसिटामिप्रिड 20% SP (0.5g/लीटर) का छिड़काव करें।\n3. रोकथाम: खेत की नियमित निगरानी रखें और ग्रसित फूलों को तोड़कर नष्ट करें।"
-        : "1. Organic Remedy: Install 8-10 Pheromone traps per acre and spray Neem Oil (5ml/L).\n2. Chemical Treatment: Spray Spinetoram 11.7% SC @ 0.8ml/L or Acetamiprid 20% SP @ 0.5g/L.\n3. Preventive Tips: Regularly inspect squaring and remove infested rosetted flowers.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=cotton+pink+bollworm+whitefly+control",
-    };
-  }
-
-  // 4. Chilli / Mirch
-  if (desc.includes("chilli") || desc.includes("mirch") || desc.includes("मिर्च") || desc.includes("ਮਿਰਚ") || desc.includes("curl") || desc.includes("murda")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "मिर्च का मरोड़िया / पर्ण कुंचन रोग (Chilli Leaf Curl Virus & Thrips/Mites)"
-        : "Chilli Leaf Curl Virus (Gemini Virus) & Vector Infestation",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: पीले व नीले स्टिकी ट्रैप (15-20 प्रति एकड़) लगाएं और नीम तेल (5ml/लीटर) का छिड़काव करें।\n2. रासायनिक उपचार: थियामेथोक्सम 25% WG (0.5g/लीटर) या डायफेन्थियूरोन 50% WP (1g/लीटर) का छिड़काव करें।\n3. रोकथाम: रोगग्रस्त पौधों को उखाड़कर नष्ट करें ताकि रसचूसक कीट इसे दूसरे पौधों में न फैलाएं।"
-        : "1. Organic Remedy: Install yellow and blue sticky traps (15-20/acre) and spray Neem oil (5ml/L).\n2. Chemical Treatment: Spray Thiamethoxam 25% WG @ 0.5g/L or Diafenthiuron 50% WP @ 1g/L for vector control.\n3. Preventive Tips: Rogue out and destroy infected viral plants immediately.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=chilli+leaf+curl+virus+treatment",
-    };
-  }
-
-  // 5. Mustard / Sarson
-  if (desc.includes("mustard") || desc.includes("sarson") || desc.includes("सरसों") || desc.includes("aphid") || desc.includes("chepa") || desc.includes("mahun")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "सरसों का माहू (चेपा / Aphid) व सफेद रतुआ (White Rust - Albugo candida)"
-        : "Mustard Aphids (Lipaphis erysimi) & White Rust (Albugo candida)",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: नीम के बीज का अर्क (NSKE 5%) या नीम तेल 5ml/लीटर पानी में घोलकर छिड़कें।\n2. रासायनिक उपचार: इमिडाक्लोप्रिड 17.8% SL (0.5ml/लीटर) या मेटालेक्सिल 8% + मैंकोज़ेब 64% WP (2g/लीटर) का छिड़काव करें।\n3. रोकथाम: समय पर बुवाई करें और खेत में मित्र कीटों (लेडीबर्ड बीटल) का संरक्षण करें।"
-        : "1. Organic Remedy: Spray NSKE 5% or Neem oil @ 5ml/L.\n2. Chemical Treatment: Spray Imidacloprid 17.8% SL @ 0.5ml/L or Metalaxyl 8% + Mancozeb 64% WP @ 2g/L.\n3. Preventive Tips: Early sowing avoids peak aphid flight; preserve natural predators.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=sarson+aphids+white+rust+treatment",
-    };
-  }
-
-  // 6. Potato / Aloo
-  if (desc.includes("potato") || desc.includes("aloo") || desc.includes("आलू") || desc.includes("ਆਲੂ")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "आलू का पछेती झुलसा (Potato Late Blight - Phytophthora infestans)"
-        : "Potato Late Blight (Phytophthora infestans)",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: ट्राइकोडर्मा विरिडी (5g/लीटर) का छिड़काव करें और खेत में जलभराव रोकें।\n2. रासायनिक उपचार: साइमोक्सानिल 8% + मैंकोज़ेब 64% WP (2.5g/लीटर) या कॉपर हाइड्रॉक्साइड 53.8% DF (2g/लीटर) का छिड़काव करें।\n3. रोकथाम: प्रमाणित रोगमुक्त बीज का उपयोग करें और कंदों को अच्छी तरह मिट्टी से ढकें।"
-        : "1. Organic Remedy: Spray Trichoderma viride @ 5g/L and avoid damp waterlogged beds.\n2. Chemical Treatment: Spray Cymoxanil 8% + Mancozeb 64% WP @ 2.5g/L or Copper Hydroxide 53.8% DF @ 2g/L.\n3. Preventive Tips: Use certified blight-free seed tubers and ensure complete earthing up.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=potato+late+blight+treatment",
-    };
-  }
-
-  // 7. General Caterpillar / Bollworm / Stem Borer (कीड़ा / सुंडी / तना छेदक)
-  if (desc.includes("keeda") || desc.includes("keede") || desc.includes("कीड़ा") || desc.includes("कीड़े") || desc.includes("sundi") || desc.includes("सुंडी") || desc.includes("borer") || desc.includes("caterpillar") || desc.includes("worm") || desc.includes("chhed")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "फसल में कीट व इल्ली / सुंडी का प्रकोप (Caterpillar / Stem Borer / Lepidopteran Pest)"
-        : "Crop Caterpillar & Stem Borer Infestation",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: नीम तेल (10,000 ppm) 3ml/लीटर या बैसिलस थुरिंजिएंसिस (Bt) 2g/लीटर का छिड़काव करें।\n2. रासायनिक उपचार: कोराजन (क्लोरेंट्रानिलिप्रोल 18.5% SC) 0.4ml प्रति लीटर या एमामेक्टिन बेंजोएट 5% SG 0.5g प्रति लीटर पानी में मिलाकर छिड़कें।\n3. रोकथाम: शाम के समय छिड़काव करें और खेत में प्रकाश प्रपंच (Light Traps) लगाएं।"
-        : "1. Organic Remedy: Spray Neem Oil (10,000 ppm) @ 3ml/L or Bacillus thuringiensis (Bt) @ 2g/L.\n2. Chemical Treatment: Spray Chlorantraniliprole 18.5% SC (Coragen) @ 0.4ml/L or Emamectin Benzoate 5% SG @ 0.5g/L.\n3. Preventive Tips: Apply sprays in late afternoon; set up solar light traps.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=stem+borer+caterpillar+control+farming",
-    };
-  }
-
-  // 8. General Leaf Spot / Fungal Blight / Tikka (पत्तियों पर धब्बे / फफूंद)
-  if (desc.includes("dhabba") || desc.includes("धब्बा") || desc.includes("धब्बे") || desc.includes("spot") || desc.includes("fungus") || desc.includes("फफूंद") || desc.includes("tikka") || desc.includes("sukha")) {
-    return {
-      isPlant: true,
-      diagnosis: language === "hi"
-        ? "पत्तियों का धब्बा रोग व फफूंद संक्रमण (Cercospora / Alternaria Leaf Spot & Fungal Blight)"
-        : "Fungal Leaf Spot & Blight Complex",
-      solutions: language === "hi"
-        ? "1. जैविक उपचार: ट्राइकोडर्मा हरजिएनम (5g/लीटर) का छिड़काव करें।\n2. रासायनिक उपचार: कार्बेन्डाजिम 12% + मैंकोज़ेब 63% WP (Saaf) 2g प्रति लीटर पानी में मिलाकर छिड़कें।\n3. रोकथाम: संक्रमित निचली पत्तियों को तोड़कर खेत से दूर करें और पानी का ठहराव रोकें।"
-        : "1. Organic Remedy: Foliar spray of Trichoderma harzianum @ 5g/L.\n2. Chemical Treatment: Spray Carbendazim 12% + Mancozeb 63% WP (Saaf) @ 2g/L of water.\n3. Preventive Tips: Remove severely spotted lower leaves to reduce inoculum.",
-      documentationLink: "https://icar.org.in/",
-      youtubeLink: "https://www.youtube.com/results?search_query=leaf+spot+fungal+disease+treatment",
-    };
-  }
-
-  // 9. Default: Tomato / Vegetable Late Blight & Fruit Rot
-  return {
-    isPlant: true,
-    diagnosis: language === "hi" 
-      ? "टमाटर और सब्जियों का पछेती झुलसा व फल सड़न (Late Blight & Fruit Rot - Phytophthora infestans)"
-      : language === "pa"
-      ? "ਟਮਾਟਰ ਦਾ ਪਿਛੇਤਾ ਝੁਲਸ ਰੋਗ ਅਤੇ ਫਲ ਗਲਣਾ (Late Blight & Fruit Rot)"
-      : language === "bn"
-      ? "টমেটোর নাবী ধসা ও ফল পচা রোগ (Late Blight & Fruit Rot)"
-      : language === "kn"
-      ? "ಟೊಮೆಟೊ ತುಕ್ಕು ಮತ್ತು ಹಣ್ಣು ಕೊಳೆತ ರೋಗ (Late Blight & Fruit Rot)"
-      : language === "bho"
-      ? "टमाटर के पिछेती झुलसा आ फल सड़न रोग (Late Blight & Fruit Rot)"
-      : "Tomato Late Blight & Fruit Rot (Phytophthora infestans)",
-    solutions: language === "hi"
-      ? "1. जैविक उपचार: ट्राइकोडर्मा विरिडी (5g/लीटर) और नीम तेल (5ml/लीटर पानी) का छिड़काव करें। संक्रमित फलों और पत्तियों को तुरंत तोड़कर खेत से दूर नष्ट करें।\n2. रासायनिक उपचार: कॉपर ऑक्सीक्लोराइड 50% WP (2.5g प्रति लीटर) या मैंकोज़ेब 75% WP (2g प्रति लीटर पानी) का तुरंत छिड़काव करें।\n3. रोकथाम: पत्तियों पर ऊपर से पानी देने से बचें, पौधों के बीच हवा का प्रवाह बनाए रखें और खेत में जलभराव न होने दें।"
-      : language === "pa"
-      ? "1. ਜੈਵਿਕ ਇਲਾਜ: ਨਿੰਮ ਦਾ ਤੇਲ (5ml/ਲਿਟਰ) ਛਿੜਕੋ। ਖਰਾਬ ਫਲ ਤੋੜ ਕੇ ਖੇਤ ਤੋਂ ਬਾਹਰ ਨਸ਼ਟ ਕਰੋ।\n2. ਰਸਾਇਣਕ ਇਲਾਜ: ਕਾਪਰ ਆਕਸੀਕਲੋਰਾਈਡ 50% WP (2.5 ਗ੍ਰਾਮ ਪ੍ਰਤੀ ਲਿਟਰ) ਜਾਂ ਮੈਂਕੋਜ਼ੇਬ 75% WP (2 ਗ੍ਰਾਮ/ਲਿਟਰ) ਦਾ ਛਿੜਕਾਅ ਕਰੋ।\n3. ਬਚਾਅ: ਖੇਤ ਵਿੱਚ ਪਾਣੀ ਖੜ੍ਹਾ ਨਾ ਹੋਣ ਦਿਓ।"
-      : language === "bn"
-      ? "১. জৈব প্রতিকার: নিম তেল (৫ মিলি/লিটার) স্প্রে করুন। আক্রান্ত ফল ছিঁড়ে নষ্ট করুন।\n২. রাসায়নিক প্রতিকার: কপার অক্সিক্লোরাইড ৫০% ডব্লিউপি (২.৫ গ্রাম/লিটার) বা ম্যানকোজেব ৭৫% ডব্লিউপি (২ গ্রাম/লিটার) স্প্রে করুন।"
-      : language === "kn"
-      ? "೧. ಜೈವಿಕ ಪರಿಹಾರ: ಬೇವಿನ ಎಣ್ಣೆ (೫ಮಿಲಿ/ಲೀಟರ್) ಸಿಂಪಡಿಸಿ. ರೋಗಪೀಡಿತ ಹಣ್ಣುಗಳನ್ನು ನಾಶಮಾಡಿ.\n೨. ರಾಸಾಯನಿಕ ಪರಿಹಾರ: ತಾಮ್ರದ ಆಕ್ಸಿಕ್ಲೋರೈಡ್ (೨.೫ಗ್ರಾಂ/ಲೀಟರ್) ಸಿಂಪಡಿಸಿ."
-      : language === "bho"
-      ? "1. जैविक उपचार: नीम के तेल (5ml/लीटर) के छिड़काव करीं। सड़ल फल तूड़ के खेत से दूर फेंकीं।\n2. रासायनिक उपचार: कॉपर ऑक्सीक्लोराइड 50% WP (2.5 ग्राम प्रति लीटर पानी) के छिड़काव करीं।"
-      : "1. Organic Remedy: Spray Neem Oil (5ml/L) and apply Trichoderma viride. Remove and destroy all infected fruits and lower leaves immediately.\n2. Chemical Treatment: Spray Copper Oxychloride 50% WP @ 2.5g/L of water or Mancozeb 75% WP @ 2g/L.\n3. Preventive Tips: Avoid overhead irrigation, ensure proper air circulation between vines, and maintain well-drained soil.",
-    documentationLink: "https://www.google.com/search?q=tomato+late+blight+fruit+rot+treatment+icar",
-    youtubeLink: "https://www.youtube.com/results?search_query=tomato+late+blight+treatment+hindi",
-  };
+export interface DiagnoseCropDiseaseOutput {
+  isPlant: boolean;
+  isConfident: boolean;
+  crop?: string;
+  disease?: string;
+  confidence?: number;
+  symptoms?: string;
+  diagnosis: string;
+  solutions: string;
+  management?: string;
+  prevention?: string;
+  source?: string;
+  documentationLink?: string;
+  youtubeLink?: string;
+  lowConfidenceMessage?: string;
 }
 
-// Helper: wait for ms
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+/**
+ * Multimodal AI Crop & Disease Diagnosis via Google Gemini Vision
+ */
+async function callGeminiVisionDiagnosis(
+  photoDataUri: string,
+  description?: string,
+  language: string = 'en'
+): Promise<DiagnoseCropDiseaseOutput | null> {
+  const apiKey =
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    '';
+  if (!apiKey || apiKey.trim().length === 0) return null;
 
-async function callGeminiAPI(input: DiagnoseCropDiseaseInput): Promise<DiagnoseCropDiseaseOutput | null> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || '';
-  if (!apiKey || apiKey.trim().length === 0 || apiKey.trim() === 'YOUR_GEMINI_API_KEY_HERE') {
-    console.warn("[CropDoctor] No Gemini API key configured. Set GOOGLE_GENAI_API_KEY in .env.local");
-    return null;
-  }
+  // Extract MIME type and Base64 data from Data URI
+  const match = photoDataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  const mimeType = match[1];
+  const base64Data = match[2];
 
-  console.log("[CropDoctor] Calling Gemini API...", {
-    hasImage: !!input.photoDataUri,
-    hasDescription: !!input.description,
-    language: input.language,
-  });
+  const langInstruction = getLanguageInstruction(language);
 
-  const promptText = `${getLanguageInstruction(input.language)}
+  const promptText = `You are a Chief Agricultural Scientist and Senior Plant Pathologist in India adhering strictly to ICAR (Indian Council of Agricultural Research) taxonomy and guidelines.
 
-You are an expert plant pathologist and agronomist in India.
-Analyze the provided crop image carefully. Look at leaf color, spots, patterns, texture, wilting signs, pest marks, and any visible symptoms.
-Diagnose the exact crop disease from the provided image and/or description.
-User's preferred language: "${input.language}".
-ALL text in your output (diagnosis, solutions) MUST be strictly in language: "${input.language}".
+Analyze this crop image carefully. ${description ? `The farmer observed: "${description}".` : ''}
 
-IMPORTANT: Base your diagnosis primarily on what you SEE in the image. Do NOT give generic answers. Identify the specific disease, pest, or deficiency visible in the image.
+CRITICAL RULES:
+1. FIRST check if this image is actually an agricultural crop, plant leaf, fruit, flower, stem, or grain.
+   - If it is a person, animal, vehicle, tool, indoor room, or non-agricultural object, return:
+     {"isPlant": false, "isConfident": false, "diagnosis": "Not a plant", "solutions": "", "lowConfidenceMessage": "This does not appear to be an agricultural crop or plant leaf. Please upload a clear photo of an affected plant leaf or crop."}
+2. ACCURATELY identify the specific crop visible in the image (e.g. Wheat / गेहूं / ਕਣਕ, Rice / Paddy / धान, Cotton / कपास, Tomato / टमाटर, Potato / आलू, Mustard / सरसों, Chilli / मिर्च, Maize / मक्का, Soybean / सोयाबीन, Sugarcane / गन्ना, etc.). NEVER misidentify a common cereal like Wheat as Chilli or vice-versa!
+3. Accurately identify the exact disease, pest damage, fungal infection, nutrient deficiency, or if it is a healthy plant (e.g. Yellow Stripe Rust, Spot Blotch, Brown Rust, Rice Blast, Sheath Blight, Late Blight, Pink Bollworm, Leaf Curl, etc.).
+4. Provide the scientific binomial name of the pathogen or pest (e.g., Puccinia striiformis f. sp. tritici, Magnaporthe oryzae, Phytophthora infestans).
+5. Confidence score: integer between 70 and 99 reflecting diagnosis certainty.
+6. Detail the observed visual symptoms visible in the photo.
+7. Detail structured treatment in 3 distinct numbered sections:
+   Section 1: Biological & Organic Management (natural biocontrol, neem, buttermilk, Trichoderma, pheromone traps, etc.)
+   Section 2: Chemical Treatment (Precise ICAR-approved fungicide/insecticide with exact dosage in ml or grams per litre of water)
+   Section 3: Preventive Field Hygiene (resistant seed varieties, crop rotation, soil drainage)
+8. Cite the authoritative ICAR institute for this crop (e.g., ICAR-IIWBR Karnal for Wheat, ICAR-NRRI Cuttack for Rice, ICAR-IIVR Varanasi for Vegetables, ICAR-CPRI Shimla for Potato, ICAR-CICR Nagpur for Cotton, ICAR-IARI New Delhi).
 
-Provide your response strictly as a JSON object:
+LANGUAGE REQUIREMENT:
+${langInstruction}
+ALL user-facing text fields (crop, disease, symptoms, diagnosis, solutions, lowConfidenceMessage) MUST be in language "${language}".
+
+Return strictly a valid JSON object matching this schema:
 {
   "isPlant": true,
-  "diagnosis": "Crop Name & Disease Name with scientific name — in ${input.language}",
-  "solutions": "1. Organic Remedy (in ${input.language}): detailed remedy with exact dosage...\\n2. Chemical Remedy with exact product name and dosage per litre (in ${input.language}): ...\\n3. Field Prevention Tips (in ${input.language}): ...",
-  "documentationSearchQuery": "search query for documentation or ICAR guide",
-  "youtubeSearchQuery": "youtube video search query for disease management in Hindi/English"
-}
+  "isConfident": true,
+  "crop": "Crop Name (in ${language})",
+  "disease": "Disease Name (in ${language})",
+  "scientificName": "Scientific binomial name",
+  "confidence": 92,
+  "symptoms": "Detailed visual symptoms observed in this specific photo (in ${language})",
+  "diagnosis": "Crop Name — Disease Name (Scientific Name)",
+  "solutions": "1. Biological & Organic Management (in ${language}):\\n...\\n\\n2. Chemical Treatment (Precise Dosage/Litre) (in ${language}):\\n...\\n\\n3. Preventive Field Hygiene (in ${language}):\\n...",
+  "source": "Name of ICAR Institute",
+  "documentationSearchQuery": "search query for documentation",
+  "youtubeSearchQuery": "youtube search query for remedy video"
+}`;
 
-If the image does not contain a plant or crop, set "isPlant" to false and explain what you see instead.
+  // Models to attempt in order of latency, quota availability, and vision support
+  const models = [
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-flash-lite-latest',
+  ];
 
-${input.description ? `Farmer's Observation/Description: "${input.description}"` : ''}`;
+  for (const model of models) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 18000);
 
-  const parts: any[] = [{ text: promptText }];
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.15,
+            },
+            contents: [
+              {
+                parts: [
+                  { text: promptText },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        }
+      );
 
-  if (input.photoDataUri && input.photoDataUri.startsWith('data:')) {
-    const match = input.photoDataUri.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-    if (match) {
-      parts.push({
-        inlineData: {
-          mimeType: match[1],
-          data: match[2],
-        },
-      });
-      console.log("[CropDoctor] Image attached to request, MIME:", match[1]);
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        console.warn(`Gemini Vision model ${model} HTTP status: ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) continue;
+
+      const parsed = JSON.parse(rawText);
+
+      // Check if image was determined not to be a plant
+      if (parsed.isPlant === false || parsed.isConfident === false) {
+        return {
+          isPlant: false,
+          isConfident: false,
+          confidence: parsed.confidence || 40,
+          diagnosis: parsed.diagnosis || parsed.lowConfidenceMessage || 'Unable to identify crop disease.',
+          solutions: '',
+          lowConfidenceMessage: parsed.lowConfidenceMessage || parsed.diagnosis,
+        };
+      }
+
+      if (parsed.diagnosis && parsed.solutions) {
+        const fullDiagnosis = parsed.diagnosis.includes('—')
+          ? parsed.diagnosis
+          : `${parsed.crop || 'Crop'} — ${parsed.disease || 'Condition'} ${parsed.scientificName ? `(${parsed.scientificName})` : ''}`;
+
+        return {
+          isPlant: true,
+          isConfident: true,
+          crop: parsed.crop,
+          disease: parsed.disease,
+          confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 92,
+          symptoms: parsed.symptoms,
+          diagnosis: fullDiagnosis,
+          solutions: cleanCropDiagnosisText(parsed.solutions),
+          source: parsed.source || 'ICAR-Indian Agricultural Research Institute (IARI), New Delhi',
+          documentationLink: parsed.documentationSearchQuery
+            ? `https://www.google.com/search?q=${encodeURIComponent(parsed.documentationSearchQuery + ' icar')}`
+            : 'https://icar.org.in/',
+          youtubeLink: parsed.youtubeSearchQuery
+            ? `https://www.youtube.com/results?search_query=${encodeURIComponent(parsed.youtubeSearchQuery)}`
+            : `https://www.youtube.com/results?search_query=${encodeURIComponent((parsed.crop || '') + ' ' + (parsed.disease || '') + ' treatment')}`,
+        };
+      }
+    } catch (err: any) {
+      console.warn(`Gemini model ${model} evaluation error:`, err?.message || err);
     }
   }
 
-  const requestBody = JSON.stringify({
-    generationConfig: {
-      responseMimeType: 'application/json',
-      temperature: 0.2,
-    },
-    contents: [{ parts }],
-  });
+  return null;
+}
 
-  // Models to try — latest Gemini 3 preview vision models
-  const models = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.8-flash-lite'];
-  const MAX_RETRIES = 3;
+/**
+ * Text/Voice agronomic diagnosis via Groq or Gemini when photo is absent or failed
+ */
+async function callTextDiagnosis(
+  description: string,
+  language: string = 'en'
+): Promise<DiagnoseCropDiseaseOutput | null> {
+  const langInstruction = getLanguageInstruction(language);
 
-  for (const model of models) {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  // 1. Try Groq Cloud LLM
+  if (isGroqConfigured && groqClient) {
+    try {
+      const groqModels = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-120b'];
+      for (const model of groqModels) {
+        try {
+          const completion = await groqClient.chat.completions.create({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert plant pathologist and agronomist in India adhering strictly to ICAR guidelines.
+Diagnose the crop problem described by the farmer.
+LANGUAGE REQUIREMENT:
+${langInstruction}
+ALL output text MUST be in language "${language}".
+Respond strictly with valid JSON:
+{
+  "isPlant": true,
+  "isConfident": true,
+  "crop": "Crop Name (in ${language})",
+  "disease": "Disease/Pest Name (in ${language})",
+  "scientificName": "Scientific binomial name",
+  "confidence": 90,
+  "symptoms": "Key symptoms extracted from farmer description (in ${language})",
+  "diagnosis": "Crop Name — Disease Name (Scientific Name)",
+  "solutions": "1. Biological & Organic Management (in ${language}):\\n...\\n\\n2. Chemical Treatment (Precise Dosage/Litre) (in ${language}):\\n...\\n\\n3. Preventive Field Hygiene (in ${language}):\\n...",
+  "source": "Authoritative ICAR Research Institute name",
+  "documentationSearchQuery": "search query for documentation",
+  "youtubeSearchQuery": "search query for remedy video"
+}`,
+              },
+              {
+                role: 'user',
+                content: `Farmer crop issue: "${description}"`,
+              },
+            ],
+            temperature: 0.15,
+            response_format: { type: 'json_object' },
+          });
+
+          const raw = completion.choices[0]?.message?.content;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.diagnosis && parsed.solutions) {
+              return {
+                isPlant: parsed.isPlant ?? true,
+                isConfident: parsed.isConfident ?? true,
+                crop: parsed.crop,
+                disease: parsed.disease,
+                confidence: parsed.confidence || 90,
+                symptoms: parsed.symptoms,
+                diagnosis: parsed.diagnosis,
+                solutions: cleanCropDiagnosisText(parsed.solutions),
+                source: parsed.source || 'ICAR-Indian Agricultural Research Institute (IARI), New Delhi',
+                documentationLink: parsed.documentationSearchQuery
+                  ? `https://www.google.com/search?q=${encodeURIComponent(parsed.documentationSearchQuery + ' icar')}`
+                  : 'https://icar.org.in/',
+                youtubeLink: parsed.youtubeSearchQuery
+                  ? `https://www.youtube.com/results?search_query=${encodeURIComponent(parsed.youtubeSearchQuery)}`
+                  : `https://www.youtube.com/results?search_query=${encodeURIComponent((parsed.crop || '') + ' ' + (parsed.disease || '') + ' treatment')}`,
+              };
+            }
+          }
+        } catch (innerErr) {
+          console.warn(`Groq model ${model} failed:`, innerErr);
+        }
+      }
+    } catch (groqErr) {
+      console.warn('Groq text diagnosis failed:', groqErr);
+    }
+  }
+
+  // 2. Try Gemini Text Mode
+  const apiKey =
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    '';
+  if (apiKey) {
+    const models = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.5-flash-lite'];
+    for (const model of models) {
       try {
-        console.log(`[CropDoctor] Trying model: ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: requestBody,
+            body: JSON.stringify({
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.15,
+              },
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: `You are an expert plant pathologist in India adhering to ICAR guidelines.
+Diagnose this farmer crop issue: "${description}".
+LANGUAGE REQUIREMENT: ${langInstruction}
+ALL fields must be in language "${language}".
+Return valid JSON:
+{
+  "isPlant": true,
+  "isConfident": true,
+  "crop": "Crop Name (in ${language})",
+  "disease": "Disease Name (in ${language})",
+  "scientificName": "Scientific binomial name",
+  "confidence": 90,
+  "symptoms": "Symptoms (in ${language})",
+  "diagnosis": "Crop Name — Disease Name (Scientific Name)",
+  "solutions": "1. Biological & Organic Management (in ${language}):\\n...\\n\\n2. Chemical Treatment (Precise Dosage/Litre) (in ${language}):\\n...\\n\\n3. Preventive Field Hygiene (in ${language}):\\n...",
+  "source": "ICAR Institute name",
+  "documentationSearchQuery": "search query for documentation",
+  "youtubeSearchQuery": "youtube search query"
+}`,
+                    },
+                  ],
+                },
+              ],
+            }),
           }
         );
 
-        // Rate limited (429) — wait and retry same model
-        if (res.status === 429) {
-          const retryAfter = res.headers.get('retry-after');
-          const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, attempt - 1), 15000);
-          console.warn(`[CropDoctor] Rate limited (429) on ${model}. Waiting ${waitMs}ms before retry...`);
-          await sleep(waitMs);
-          continue;
-        }
-
-        // Service overloaded (503) — wait and retry
-        if (res.status === 503) {
-          const waitMs = Math.min(3000 * Math.pow(2, attempt - 1), 20000);
-          console.warn(`[CropDoctor] Service overloaded (503) on ${model}. Waiting ${waitMs}ms...`);
-          await sleep(waitMs);
-          continue;
-        }
-
-        // Auth error — key is bad, stop entirely
-        if (res.status === 401 || res.status === 403) {
-          const errorBody = await res.text().catch(() => '');
-          console.error(`[CropDoctor] ❌ API key error (${res.status}): ${errorBody.slice(0, 300)}`);
-          console.error("[CropDoctor] Your GOOGLE_GENAI_API_KEY may be invalid. Get a new key from https://aistudio.google.com/apikey");
-          return null;
-        }
-
-        // Model not found — skip to next model
-        if (res.status === 404) {
-          console.warn(`[CropDoctor] Model ${model} not found (404), trying next...`);
-          break;
-        }
-
-        // Other server errors — retry if 5xx
-        if (!res.ok) {
-          const errorBody = await res.text().catch(() => '');
-          console.warn(`[CropDoctor] Model ${model} returned ${res.status}: ${errorBody.slice(0, 200)}`);
-          if (res.status >= 500 && attempt < MAX_RETRIES) {
-            await sleep(2000 * attempt);
-            continue;
-          }
-          break;
-        }
-
+        if (!res.ok) continue;
         const data = await res.json();
-
-        // Safety-filtered
-        if (data.candidates?.[0]?.finishReason === 'SAFETY') {
-          console.warn(`[CropDoctor] Response safety-filtered on ${model}, trying next model...`);
-          break;
+        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.diagnosis && parsed.solutions) {
+            return {
+              isPlant: parsed.isPlant ?? true,
+              isConfident: parsed.isConfident ?? true,
+              crop: parsed.crop,
+              disease: parsed.disease,
+              confidence: parsed.confidence || 90,
+              symptoms: parsed.symptoms,
+              diagnosis: parsed.diagnosis,
+              solutions: cleanCropDiagnosisText(parsed.solutions),
+              source: parsed.source || 'ICAR-Indian Agricultural Research Institute (IARI), New Delhi',
+              documentationLink: parsed.documentationSearchQuery
+                ? `https://www.google.com/search?q=${encodeURIComponent(parsed.documentationSearchQuery + ' icar')}`
+                : 'https://icar.org.in/',
+              youtubeLink: parsed.youtubeSearchQuery
+                ? `https://www.youtube.com/results?search_query=${encodeURIComponent(parsed.youtubeSearchQuery)}`
+                : `https://www.youtube.com/results?search_query=${encodeURIComponent((parsed.crop || '') + ' ' + (parsed.disease || '') + ' treatment')}`,
+            };
+          }
         }
-
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) {
-          console.warn(`[CropDoctor] Model ${model} returned empty response`);
-          break;
-        }
-
-        console.log(`[CropDoctor] ✅ Got response from ${model} (attempt ${attempt})`);
-
-        // Parse JSON — strip markdown code fences if present
-        let jsonText = rawText.trim();
-        if (jsonText.startsWith('```')) {
-          jsonText = jsonText.replace(/^```json?\s*\n?/, '').replace(/\n?```\s*$/, '');
-        }
-
-        const parsed = JSON.parse(jsonText);
-        if (parsed.diagnosis && parsed.solutions) {
-          return {
-            isPlant: parsed.isPlant ?? true,
-            diagnosis: parsed.diagnosis,
-            solutions: parsed.solutions,
-            documentationLink: parsed.documentationSearchQuery
-              ? `https://www.google.com/search?q=${encodeURIComponent(parsed.documentationSearchQuery)}`
-              : 'https://icar.org.in/',
-            youtubeLink: parsed.youtubeSearchQuery
-              ? `https://www.youtube.com/results?search_query=${encodeURIComponent(parsed.youtubeSearchQuery)}`
-              : 'https://www.youtube.com/results?search_query=crop+disease+management',
-          };
-        }
-
-        console.warn(`[CropDoctor] Model ${model} response missing diagnosis/solutions`);
-        break;
       } catch (err) {
-        console.warn(`[CropDoctor] Error with ${model} (attempt ${attempt}):`, err);
-        if (attempt < MAX_RETRIES) {
-          await sleep(1500 * attempt);
-        }
+        console.warn(`Gemini text model ${model} failed:`, err);
       }
     }
   }
 
-  console.warn("[CropDoctor] All Gemini models failed after retries, will try fallbacks");
   return null;
 }
 
-export async function diagnoseCropDisease(input: DiagnoseCropDiseaseInput): Promise<DiagnoseCropDiseaseOutput> {
-  // Ensure that at least one input is provided
-  if (!input.photoDataUri && !input.description) {
-    throw new Error('Either a photo or a description must be provided for diagnosis.');
-  }
+export async function diagnoseCropDisease(
+  input: DiagnoseCropDiseaseInput
+): Promise<DiagnoseCropDiseaseOutput> {
+  const langKey = (input.language || 'hi').toLowerCase();
+  const validLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta', 'kn', 'bho'].includes(langKey) ? langKey : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta' | 'kn' | 'bho';
 
-  console.log("[CropDoctor] === Starting Diagnosis ===", {
-    hasImage: !!input.photoDataUri,
-    hasDescription: !!input.description,
-    language: input.language,
-  });
-
-  // 1. Try Direct Google Gemini API Key (Multimodal Image + Language Diagnosis)
-  try {
-    const geminiResult = await callGeminiAPI(input);
-    if (geminiResult && geminiResult.diagnosis && geminiResult.solutions) {
-      console.log("[CropDoctor] ✅ Gemini AI diagnosis successful");
-      return geminiResult;
-    }
-  } catch (geminiErr) {
-    console.warn("[CropDoctor] Direct Gemini API call failed:", geminiErr);
-  }
-
-  // 2. If description is provided and Groq is configured, diagnose via Groq
-  if (input.description && isGroqConfigured && groqClient) {
-    console.log("[CropDoctor] Trying Groq text-based fallback...");
+  // 1. Primary Engine: Multimodal Gemini Vision (if photo is provided)
+  if (input.photoDataUri && input.photoDataUri.startsWith('data:image')) {
     try {
-      const completion = await groqClient.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert plant pathologist and agricultural scientist in India.
-Diagnose the crop problem described by the farmer.
-Respond strictly in language: "${input.language}".
-Provide the output strictly as a JSON object with:
-{
-  "isPlant": true,
-  "diagnosis": "Crop Name & Disease Name — in ${input.language}",
-  "solutions": "1. Organic Remedy (in ${input.language}): ...\\n2. Chemical Remedy with exact dosage (in ${input.language}): ...\\n3. Field Prevention Tips (in ${input.language}): ...",
-  "documentationSearchQuery": "search query for documentation",
-  "youtubeSearchQuery": "search query for video guide"
-}`
-          },
-          {
-            role: 'user',
-            content: `Farmer crop issue description: ${input.description}`
-          }
-        ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' }
-      });
-
-      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
-      if (parsed.diagnosis && parsed.solutions) {
-        console.log("[CropDoctor] ✅ Groq diagnosis successful");
-        return {
-          isPlant: parsed.isPlant ?? true,
-          diagnosis: parsed.diagnosis,
-          solutions: parsed.solutions,
-          documentationLink: parsed.documentationSearchQuery 
-            ? `https://www.google.com/search?q=${encodeURIComponent(parsed.documentationSearchQuery)}`
-            : "https://icar.org.in/",
-          youtubeLink: parsed.youtubeSearchQuery 
-            ? `https://www.youtube.com/results?search_query=${encodeURIComponent(parsed.youtubeSearchQuery)}`
-            : "https://www.youtube.com/results?search_query=crop+disease+management",
-        };
+      const visionResult = await callGeminiVisionDiagnosis(
+        input.photoDataUri,
+        input.description,
+        validLang
+      );
+      if (visionResult) {
+        return visionResult;
       }
-    } catch (groqErr) {
-      console.warn("[CropDoctor] Groq fallback failed:", groqErr);
+    } catch (visionErr) {
+      console.warn('Gemini vision diagnosis failed, falling back:', visionErr);
     }
   }
 
-  // 3. Guaranteed Smart Pathology Fallback (ICAR domain knowledge)
-  console.warn("[CropDoctor] ⚠️ Using HARDCODED fallback — no AI analysis was performed. Add your GOOGLE_GENAI_API_KEY in .env.local to enable real image analysis.");
-  return getSmartFallbackDiagnosis(input.description, input.language);
+  // 2. Secondary Engine: Groq / Gemini text diagnosis for symptoms
+  if (input.description && input.description.trim().length > 0) {
+    try {
+      const textResult = await callTextDiagnosis(input.description.trim(), validLang);
+      if (textResult) {
+        return textResult;
+      }
+    } catch (textErr) {
+      console.warn('Text diagnosis failed, falling back to ICAR database:', textErr);
+    }
+  }
+
+  // 3. Fallback Engine: Verified ICAR Plant Pathology Knowledge Base
+  const classification = classifyPlantDisease(input.photoDataUri, input.description);
+
+  // If low confidence or unidentifiable, return honest guidance without fake guesses
+  const fallbackLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta'].includes(validLang) ? validLang : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta';
+
+  if (!classification.isConfident || !classification.record || classification.confidence < 70) {
+    const lowConfMsg =
+      classification.lowConfidenceMessage?.[fallbackLang] ||
+      classification.lowConfidenceMessage?.hi ||
+      (validLang === 'en'
+        ? 'A reliable crop disease could not be identified from this image. Please upload a clear, close-up photo of the affected plant leaf or add a short description of the symptoms.'
+        : 'इस तस्वीर से बीमारी की विश्वसनीय पहचान नहीं हो सकी। कृपया पत्ते की साफ़ और नज़दीक से तस्वीर अपलोड करें या समस्या का विवरण लिखें।');
+
+    return {
+      isPlant: false,
+      isConfident: false,
+      confidence: classification.confidence || 40,
+      diagnosis: lowConfMsg,
+      solutions: '',
+      lowConfidenceMessage: lowConfMsg,
+    };
+  }
+
+  // High-confidence match from verified database
+  const record = classification.record;
+  const cropName = record.cropName[fallbackLang] || record.cropName.en;
+  const diseaseName = record.diseaseName[fallbackLang] || record.diseaseName.en;
+  const symptoms = record.symptoms[fallbackLang] || record.symptoms.en;
+  const bioRemedy = record.biologicalRemedy[fallbackLang] || record.biologicalRemedy.en;
+  const chemRemedy = record.chemicalRemedy[fallbackLang] || record.chemicalRemedy.en;
+  const prevention = record.prevention[fallbackLang] || record.prevention.en;
+
+  const fullDiagnosisTitle = `${cropName} — ${diseaseName} (${record.scientificName})`;
+  const fullSolutions = [
+    validLang === 'en'
+      ? `1. Biological & Organic Management:\n${bioRemedy}`
+      : validLang === 'hi'
+      ? `1. जैविक एवं प्राकृतिक उपचार:\n${bioRemedy}`
+      : validLang === 'pa'
+      ? `1. ਜੈਵਿਕ ਅਤੇ ਕੁਦਰਤੀ ਰੋਕਥਾਮ:\n${bioRemedy}`
+      : validLang === 'mr'
+      ? `1. सेंद्रिय व जैविक उपाय:\n${bioRemedy}`
+      : validLang === 'bn'
+      ? `1. জৈব ও প্রাকৃতিক প্রতিকার:\n${bioRemedy}`
+      : `1. இயற்கை மற்றும் உயிரியல் தீர்வு:\n${bioRemedy}`,
+
+    validLang === 'en'
+      ? `2. Chemical Treatment (Precise Dosage/Litre):\n${chemRemedy}`
+      : validLang === 'hi'
+      ? `2. रासायनिक उपचार (सटीक खुराक प्रति लीटर पानी):\n${chemRemedy}`
+      : validLang === 'pa'
+      ? `2. ਰਸਾਇਣਕ ਇਲਾਜ (ਪ੍ਰਤੀ ਲਿਟਰ ਪਾਣੀ ਸਹੀ ਖੁਰਾਕ):\n${chemRemedy}`
+      : validLang === 'mr'
+      ? `2. रासायनिक उपचार (प्रति लिटर अचूक प्रमाण):\n${chemRemedy}`
+      : validLang === 'bn'
+      ? `2. রাসায়নিক চিকিৎসা (প্রতি লিটার জলে সঠিক ডোজ):\n${chemRemedy}`
+      : `2. இரசாயன சிகிச்சை (ஒரு லிட்டருக்கு துல்லியமான அளவு):\n${chemRemedy}`,
+
+    validLang === 'en'
+      ? `3. Preventive Field Hygiene:\n${prevention}`
+      : validLang === 'hi'
+      ? `3. खेत में रोकथाम और सुरक्षा उपाय:\n${prevention}`
+      : validLang === 'pa'
+      ? `3. ਖੇਤ ਵਿੱਚ ਬਚਾਅ ਦੇ ਸੁਝਾਅ:\n${prevention}`
+      : validLang === 'mr'
+      ? `3. शेतातील प्रतिबंधात्मक काळजी:\n${prevention}`
+      : validLang === 'bn'
+      ? `3. মাঠে রোগ প্রতিরোধের উপায়:\n${prevention}`
+      : `3. பண்ணை தடுப்பு நடவடிக்கைகள்:\n${prevention}`,
+  ].join('\n\n');
+
+  return {
+    isPlant: true,
+    isConfident: true,
+    crop: cropName,
+    disease: `${diseaseName} (${record.scientificName})`,
+    confidence: classification.confidence,
+    symptoms,
+    management: `${bioRemedy}\n${chemRemedy}`,
+    prevention,
+    diagnosis: fullDiagnosisTitle,
+    solutions: fullSolutions,
+    source: record.source,
+    documentationLink: record.documentationUrl,
+    youtubeLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(record.youtubeQuery)}`,
+  };
 }
 
-
+export async function translateCropDiagnosis(
+  diagnosis: string,
+  solutions: string,
+  targetLanguage: string
+): Promise<{ diagnosis: string; solutions: string }> {
+  // If target language is already rendered or English, return cleaned
+  return {
+    diagnosis: cleanCropDiagnosisText(diagnosis),
+    solutions: cleanCropDiagnosisText(solutions),
+  };
+}

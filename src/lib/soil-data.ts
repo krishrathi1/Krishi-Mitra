@@ -16,7 +16,7 @@
  * If a verified regional name is unavailable, the standard name is used.
  */
 
-export type SupportedLanguage = 'en' | 'hi' | 'kn' | 'bn' | 'bho' | 'pa';
+export type SupportedLanguage = 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta' | 'kn' | 'bho';
 
 export interface SoilEntry {
   /** The soil type key used internally */
@@ -1087,12 +1087,14 @@ export function getSoilsForState(stateName: string | null | undefined): SoilEntr
  */
 export function getLanguageInstruction(language: string): string {
   const instructions: Record<string, string> = {
-    en: 'Respond ENTIRELY in English. Do not use Hindi, Kannada, Bengali, Punjabi, Bhojpuri, or any other language. Scientific names (Latin), crop variety names, and officially registered product/chemical names may remain in their standard form.',
-    hi: 'पूरी तरह से हिंदी में जवाब दें। अंग्रेजी शब्द केवल तभी प्रयोग करें जब वे अपरिहार्य वैज्ञानिक नाम, रासायनिक नाम, इकाइयाँ, या आधिकारिक रूप से पंजीकृत उत्पाद/दवाओं के नाम हों। कोई अन्य अंग्रेजी शब्द न मिलाएं।',
-    kn: 'ಸಂಪೂರ್ಣವಾಗಿ ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ. ವೈಜ್ಞಾನಿಕ ಹೆಸರುಗಳು, ರಾಸಾಯನಿಕ ಹೆಸರುಗಳು, ಅಥವಾ ಅಧಿಕೃತ ಉತ್ಪನ್ನ ಹೆಸರುಗಳನ್ನು ಹೊರತುಪಡಿಸಿ ಬೇರೆ ಭಾಷೆ ಬಳಸಬೇಡಿ.',
-    bn: 'সম্পূর্ণ বাংলায় উত্তর দিন। বৈজ্ঞানিক নাম, রাসায়নিক নাম, বা সরকারিভাবে নিবন্ধিত পণ্যের নাম ছাড়া অন্য ভাষায় কোনো শব্দ ব্যবহার করবেন না।',
-    bho: 'पूरा जवाब भोजपुरी में दीं। वैज्ञानिक नाम, रासायनिक नाम, या आधिकारिक उत्पाद नाम के अलावा कौनो दूसरी भाषा मत मिलाईं।',
-    pa: 'ਪੂਰੀ ਤਰ੍ਹਾਂ ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦਿਓ। ਵਿਗਿਆਨਕ ਨਾਮ, ਰਸਾਇਣਕ ਨਾਮ, ਜਾਂ ਸਰਕਾਰੀ ਤੌਰ ਤੇ ਦਰਜ ਉਤਪਾਦ ਨਾਮਾਂ ਨੂੰ ਛੱਡ ਕੇ ਕੋਈ ਹੋਰ ਭਾਸ਼ਾ ਨਾ ਵਰਤੋ।'
+    en: 'Respond entirely in English. Do not mix any other language unless it is a scientific name, URL, unit, or unavoidable technical identifier.',
+    hi: 'Respond entirely in Hindi. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    pa: 'Respond entirely in Punjabi. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    mr: 'Respond entirely in Marathi. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    bn: 'Respond entirely in Bengali. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    ta: 'Respond entirely in Tamil. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    kn: 'Respond entirely in Kannada. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.',
+    bho: 'Respond entirely in Bhojpuri. Do not mix English unless it is a proper noun, scientific name, URL, unit, or unavoidable technical identifier.'
   };
   return instructions[language] || instructions.en;
 }
@@ -1124,11 +1126,17 @@ export function getSoilSectionLabels(language: SupportedLanguage): {
       selectedLocationPrefix: 'के लिए उपलब्ध मिट्टी',
       soilsForRegion: 'क्षेत्र-विशिष्ट मिट्टी के प्रकार'
     },
-    kn: {
-      soilTypeLabel: 'ಮಣ್ಣಿನ ಪ್ರಕಾರ',
-      selectPlaceholder: 'ನಿಮ್ಮ ಪ್ರದೇಶದ ಮಣ್ಣು ಆಯ್ಕೆ ಮಾಡಿ',
-      selectedLocationPrefix: 'ಗಾಗಿ ಲಭ್ಯವಿರುವ ಮಣ್ಣು',
-      soilsForRegion: 'ಪ್ರಾದೇಶಿಕ ಮಣ್ಣಿನ ಪ್ರಕಾರಗಳು'
+    pa: {
+      soilTypeLabel: 'ਮਿੱਟੀ ਦੀ ਕਿਸਮ',
+      selectPlaceholder: 'ਆਪਣੇ ਖੇਤਰ ਦੀ ਮਿੱਟੀ ਚੁਣੋ',
+      selectedLocationPrefix: 'ਲਈ ਉਪਲਬਧ ਮਿੱਟੀ',
+      soilsForRegion: 'ਖੇਤਰ-ਵਿਸ਼ੇਸ਼ ਮਿੱਟੀ ਦੀਆਂ ਕਿਸਮਾਂ'
+    },
+    mr: {
+      soilTypeLabel: 'मातीचा प्रकार',
+      selectPlaceholder: 'तुमच्या भागातील माती निवडा',
+      selectedLocationPrefix: 'साठी उपलब्ध माती',
+      soilsForRegion: 'प्रदेश-विशिष्ट मातीचे प्रकार'
     },
     bn: {
       soilTypeLabel: 'মাটির ধরন',
@@ -1136,17 +1144,23 @@ export function getSoilSectionLabels(language: SupportedLanguage): {
       selectedLocationPrefix: 'এর জন্য উপলব্ধ মাটি',
       soilsForRegion: 'আঞ্চলিক মাটির ধরন'
     },
+    ta: {
+      soilTypeLabel: 'மண் வகை',
+      selectPlaceholder: 'உங்கள் பிராந்தியத்திற்கான மண் வகையைத் தேர்ந்தெடுக்கவும்',
+      selectedLocationPrefix: 'க்கான மண் வகைகள்',
+      soilsForRegion: 'பிராந்திய குறிப்பிட்ட மண் வகைகள்'
+    },
+    kn: {
+      soilTypeLabel: 'ಮಣ್ಣಿನ ಪ್ರಕಾರ',
+      selectPlaceholder: 'ನಿಮ್ಮ ಪ್ರದೇಶದ ಮಣ್ಣು ಆಯ್ಕೆ ಮಾಡಿ',
+      selectedLocationPrefix: 'ಗಾಗಿ ಲಭ್ಯವಿರುವ ಮಣ್ಣು',
+      soilsForRegion: 'ಪ್ರಾದೇಶಿಕ ಮಣ್ಣಿನ ಪ್ರಕಾರಗಳು'
+    },
     bho: {
       soilTypeLabel: 'माटी के प्रकार',
       selectPlaceholder: 'अपना क्षेत्र के माटी चुनीं',
       selectedLocationPrefix: 'के खातिर उपलब्ध माटी',
       soilsForRegion: 'क्षेत्र के माटी के प्रकार'
-    },
-    pa: {
-      soilTypeLabel: 'ਮਿੱਟੀ ਦੀ ਕਿਸਮ',
-      selectPlaceholder: 'ਆਪਣੇ ਖੇਤਰ ਦੀ ਮਿੱਟੀ ਚੁਣੋ',
-      selectedLocationPrefix: 'ਲਈ ਉਪਲਬਧ ਮਿੱਟੀ',
-      soilsForRegion: 'ਖੇਤਰ-ਵਿਸ਼ੇਸ਼ ਮਿੱਟੀ ਦੀਆਂ ਕਿਸਮਾਂ'
     }
   };
   return labels[language] || labels.en;

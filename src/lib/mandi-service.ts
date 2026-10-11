@@ -408,24 +408,7 @@ export function generateRealtimeStatePrices(filter?: {
   const arrivalDateStr = `${day}/${month}/${year}`;
   const timestampStr = now.toLocaleString('en-IN');
 
-  const startOfYear = new Date(year, 0, 1);
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-
-  return records.map((r, idx) => {
-    const dailyHash = Math.sin(dayOfYear * 9301 + idx * 49297) * 10000;
-    const dailyShiftPercent = ((dailyHash - Math.floor(dailyHash)) - 0.5) * 0.05;
-    const dailyShift = Math.round(r.basePrice * dailyShiftPercent);
-
-    const minute = now.getMinutes();
-    const tickOffsets = [-15, -10, -5, 0, 5, 10, 15];
-    const microTick = tickOffsets[(minute + idx * 3) % tickOffsets.length];
-
-    const totalDelta = dailyShift + microTick;
-    const currentModal = Math.max(100, r.basePrice + totalDelta);
-    const minP = Math.max(50, r.minSpread + Math.round(totalDelta * 0.7));
-    const maxP = Math.max(currentModal, r.maxSpread + Math.round(totalDelta * 1.3));
-    const changeStr = totalDelta > 0 ? `+${totalDelta}` : totalDelta < 0 ? `${totalDelta}` : '0';
-
+  return records.map((r) => {
     return {
       timestamp: timestampStr,
       commodity: r.commodity,
@@ -436,12 +419,12 @@ export function generateRealtimeStatePrices(filter?: {
       variety: r.variety,
       grade: r.grade,
       arrivalDate: arrivalDateStr,
-      price: currentModal.toLocaleString('en-IN'),
-      modalPrice: currentModal.toLocaleString('en-IN'),
-      minPrice: minP.toLocaleString('en-IN'),
-      maxPrice: maxP.toLocaleString('en-IN'),
-      change: changeStr,
-      source: 'Agmarknet (Govt of India)',
+      price: r.basePrice.toLocaleString('en-IN'),
+      modalPrice: r.basePrice.toLocaleString('en-IN'),
+      minPrice: r.minSpread.toLocaleString('en-IN'),
+      maxPrice: r.maxSpread.toLocaleString('en-IN'),
+      change: '0',
+      source: 'Agmarknet APMC Directory Benchmark',
       sourceUrl: 'https://agmarknet.gov.in',
     };
   });

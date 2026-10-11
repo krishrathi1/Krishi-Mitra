@@ -11,6 +11,7 @@ import { RefreshCw, TrendingUp, TrendingDown, Minus, Search, ExternalLink, Shiel
 import { useTranslation } from '@/contexts/language-context';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocation } from '@/contexts/location-context';
 import { INDIAN_STATES } from '@/lib/mandi-service';
 
 interface MarketData {
@@ -102,8 +103,20 @@ function setToCache(state: string, district: string, entry: Omit<CachedMarketEnt
 }
 
 export function MarketPrices() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { userProfile } = useAuth();
+  const { location: sharedLocation } = useLocation();
+
+  const dateLocaleMap: Record<string, string> = {
+    hi: 'hi-IN',
+    pa: 'pa-IN',
+    mr: 'mr-IN',
+    bn: 'bn-IN',
+    ta: 'ta-IN',
+    en: 'en-IN'
+  };
+  const dateLocale = dateLocaleMap[language] || 'en-IN';
+
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,9 +129,19 @@ export function MarketPrices() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState<boolean>(false);
 
-  // Initialize selected state from user profile location if available
+  // Initialize selected state from shared location context or user profile
   useEffect(() => {
-    if (userProfile?.location) {
+    if (sharedLocation?.state) {
+      for (const s of INDIAN_STATES) {
+        if (s.toLowerCase() === sharedLocation.state.toLowerCase() || sharedLocation.state.toLowerCase().includes(s.toLowerCase())) {
+          setSelectedState(s);
+          if (sharedLocation.district) {
+            setSelectedDistrict(sharedLocation.district);
+          }
+          break;
+        }
+      }
+    } else if (userProfile?.location) {
       const loc = userProfile.location.toLowerCase();
       for (const s of INDIAN_STATES) {
         if (s === 'All States') continue;
@@ -128,7 +151,7 @@ export function MarketPrices() {
         }
       }
     }
-  }, [userProfile?.location]);
+  }, [sharedLocation, userProfile?.location]);
 
   const fetchMarketData = async (
     stateToFetch = selectedState,
@@ -300,14 +323,14 @@ export function MarketPrices() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
-            <h2 className="text-xl font-bold font-headline">Live APMC Mandi Prices</h2>
+            <h2 className="text-xl font-bold font-headline">{t('marketAnalyst.livePrices.title') || 'Live APMC Mandi Prices'}</h2>
             <Badge variant="outline" className="text-xs bg-white/80 dark:bg-slate-900 border-emerald-200">
               <ShieldCheck className="h-3 w-3 mr-1 text-emerald-600" />
-              Official Agmarknet Feed
+              {t('marketAnalyst.livePrices.officialAgmarknetFeed') || 'Official Agmarknet Feed'}
             </Badge>
             <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300">
               <Calendar className="h-3 w-3 mr-1 text-emerald-600" />
-              {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {new Date().toLocaleDateString(dateLocale, { day: '2-digit', month: 'short', year: 'numeric' })}
             </Badge>
             {selectedState !== 'All States' && (
               <Badge className="bg-emerald-700 text-white text-xs hover:bg-emerald-800">
@@ -318,7 +341,7 @@ export function MarketPrices() {
           </div>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
             <span>
-              Real-time daily modal transactions from <strong className="text-foreground">{apiSource}</strong>
+              {t('marketAnalyst.livePrices.subtitlePrefix') || 'Real-time daily modal transactions from'} <strong className="text-foreground">{apiSource}</strong>
             </span>
             {lastUpdated && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -335,7 +358,7 @@ export function MarketPrices() {
             className="shrink-0 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full px-4 shadow-sm"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Fetching Mandis...' : 'Refresh Live Prices'}
+            {isLoading ? (t('marketAnalyst.livePrices.fetchingMandis') || 'Fetching Mandis...') : (t('marketAnalyst.livePrices.refreshLivePrices') || 'Refresh Live Prices')}
           </Button>
         </div>
       </div>
@@ -346,10 +369,12 @@ export function MarketPrices() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* State Selector */}
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">1. Select State (All India)</label>
+              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                {t('marketAnalyst.livePrices.selectState') || '1. Select State'}
+              </label>
               <Select value={selectedState} onValueChange={setSelectedState}>
                 <SelectTrigger className="text-xs h-9 font-medium">
-                  <SelectValue placeholder="Select State" />
+                  <SelectValue placeholder={t('marketAnalyst.livePrices.selectState') || 'Select State'} />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
                   {INDIAN_STATES.map((state) => (
@@ -363,7 +388,9 @@ export function MarketPrices() {
 
             {/* District Selector */}
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">2. Select District</label>
+              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                {t('marketAnalyst.livePrices.selectDistrict') || '2. Select District'}
+              </label>
               <Select
                 value={selectedDistrict}
                 onValueChange={setSelectedDistrict}
@@ -385,7 +412,9 @@ export function MarketPrices() {
 
             {/* Commodity Selector */}
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">3. Select Crop</label>
+              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                {t('marketAnalyst.livePrices.selectCrop') || '3. Select Crop'}
+              </label>
               <Select
                 value={selectedCommodity}
                 onValueChange={setSelectedCommodity}
@@ -407,7 +436,9 @@ export function MarketPrices() {
 
             {/* Search Input */}
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">4. Search Mandi / Crop</label>
+              <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                {t('marketAnalyst.livePrices.searchMandiCrop') || '4. Search Mandi / Crop'}
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -424,20 +455,20 @@ export function MarketPrices() {
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
             <div className="flex items-center gap-3 flex-wrap">
               <span>
-                State: <strong className="text-foreground">{selectedState}</strong>
+                {t('marketAnalyst.livePrices.stateLabel') || 'State'}: <strong className="text-foreground">{selectedState === 'All States' ? (t('marketAnalyst.livePrices.allStates') || 'All States') : selectedState}</strong>
               </span>
               {selectedDistrict !== 'all' && (
                 <span>
-                  District: <strong className="text-foreground">{selectedDistrict}</strong>
+                  {t('marketAnalyst.livePrices.districtLabel') || 'District'}: <strong className="text-foreground">{selectedDistrict}</strong>
                 </span>
               )}
               {selectedCommodity !== 'all' && (
                 <span>
-                  Crop: <strong className="text-foreground">{selectedCommodity}</strong>
+                  {t('marketAnalyst.livePrices.cropLabel') || 'Crop'}: <strong className="text-foreground">{selectedCommodity}</strong>
                 </span>
               )}
               <span>
-                Matching Mandis: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{filteredData.length}</strong>
+                {t('marketAnalyst.livePrices.matchingMandis') || 'Matching Mandis'}: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{filteredData.length}</strong>
               </span>
             </div>
             {(selectedDistrict !== 'all' || selectedCommodity !== 'all' || searchTerm) && (
@@ -451,7 +482,7 @@ export function MarketPrices() {
                   setSearchTerm('');
                 }}
               >
-                Reset Filters
+                {t('marketAnalyst.livePrices.resetFilters') || 'Reset Filters'}
               </Button>
             )}
           </div>
@@ -463,15 +494,15 @@ export function MarketPrices() {
         <CardHeader className="py-4 px-6 border-b bg-muted/20">
           <CardTitle className="text-base font-bold flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <span>📋 Official APMC Mandi Rates</span>
+              <span>📋 {t('marketAnalyst.livePrices.officialRates') || 'Official APMC Mandi Rates'}</span>
               {isFallback && (
                 <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-[11px]">
-                  Offline Benchmark Mode
+                  {t('marketAnalyst.livePrices.offlineBenchmark') || 'Offline Benchmark Mode'}
                 </Badge>
               )}
             </span>
             <span className="text-xs font-normal text-muted-foreground">
-              Showing {filteredData.length} authentic records
+              {t('marketAnalyst.livePrices.showingRecords', { count: filteredData.length }) || `Showing ${filteredData.length} authentic records`}
             </span>
           </CardTitle>
         </CardHeader>
@@ -487,12 +518,12 @@ export function MarketPrices() {
               <table className="w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40 text-muted-foreground text-xs uppercase tracking-wider">
-                    <th className="text-left py-3.5 px-4 font-semibold">Commodity & Variety</th>
-                    <th className="text-left py-3.5 px-4 font-semibold">Mandi Market Yard</th>
-                    <th className="text-left py-3.5 px-4 font-semibold">Arrival Date</th>
-                    <th className="text-left py-3.5 px-4 font-semibold">Modal Price (₹/Q)</th>
-                    <th className="text-left py-3.5 px-4 font-semibold">Min - Max (₹/Q)</th>
-                    <th className="text-left py-3.5 px-4 font-semibold">Official Source</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.commodityVariety') || 'Commodity & Variety'}</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.mandiYard') || 'Mandi Market Yard'}</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.arrivalDate') || 'Arrival Date'}</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.modalPrice') || 'Modal Price (₹/Q)'}</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.minMaxPrice') || 'Min - Max (₹/Q)'}</th>
+                    <th className="text-left py-3.5 px-4 font-semibold">{t('marketAnalyst.livePrices.officialSource') || 'Official Source'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -561,9 +592,9 @@ export function MarketPrices() {
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground text-sm space-y-2">
-              <p className="font-semibold text-foreground">No commodities found matching current filters.</p>
+              <p className="font-semibold text-foreground">{t('marketAnalyst.livePrices.noRecordsFound') || 'No commodities found matching current filters.'}</p>
               <p className="text-xs">
-                Try selecting a different State or District from the dropdowns above to view active mandis.
+                {t('marketAnalyst.livePrices.unavailableMessage') || 'Live market price data is currently unavailable.'}
               </p>
               <Button
                 variant="outline"
@@ -576,7 +607,7 @@ export function MarketPrices() {
                   setSearchTerm('');
                 }}
               >
-                Reset All Filters
+                {t('marketAnalyst.livePrices.resetFilters') || 'Reset All Filters'}
               </Button>
             </div>
           )}

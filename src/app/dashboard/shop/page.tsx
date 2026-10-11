@@ -27,6 +27,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/contexts/language-context";
+import { useLocation } from "@/contexts/location-context";
 
 const MACHINERY_CATEGORIES = [
   "All Machinery",
@@ -74,6 +75,7 @@ const POPULAR_EQUIPMENTS = [
 export default function KrishiStorePage() {
   const { t } = useTranslation();
   const { userProfile } = useAuth();
+  const { location: sharedLocation, detectLocation: detectSharedLocation } = useLocation();
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>("buy-stores");
@@ -106,8 +108,8 @@ export default function KrishiStorePage() {
     phone: userProfile?.phone || "",
     rate: "",
     rateUnit: "hour" as 'hour' | 'day' | 'acre' | 'month',
-    state: "Uttarakhand",
-    district: "Dehradun",
+    state: "Madhya Pradesh",
+    district: "Sehore",
     villageOrLocation: "",
     driverIncluded: true,
     availability: "Available Today",
@@ -128,9 +130,15 @@ export default function KrishiStorePage() {
     }
   }, []);
 
-  // Initialize location from user profile if available
+  // Initialize location from shared location context or user profile
   useEffect(() => {
-    if (userProfile?.location && !locationQuery) {
+    if (sharedLocation?.displayName && !locationQuery) {
+      setLocationQuery(sharedLocation.displayName);
+      if (sharedLocation.state) {
+        setSelectedState(sharedLocation.state);
+        setNewListing((prev) => ({ ...prev, state: sharedLocation.state || 'Madhya Pradesh' }));
+      }
+    } else if (userProfile?.location && !locationQuery) {
       const loc = userProfile.location.trim();
       setLocationQuery(loc);
       const match = ALL_INDIAN_STATES_FILTER.find(
@@ -141,50 +149,30 @@ export default function KrishiStorePage() {
         setNewListing((prev) => ({ ...prev, state: match.name }));
       }
     }
-  }, [userProfile?.location]);
+  }, [sharedLocation, userProfile?.location, locationQuery]);
 
-  // GPS Location Auto-Detection
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
+  // GPS Location Auto-Detection using shared reverse geocoding
+  const handleDetectLocation = async () => {
+    setIsDetectingLocation(true);
+    try {
+      const loc = await detectSharedLocation();
+      if (loc) {
+        setLocationQuery(loc.displayName);
+        if (loc.state) setSelectedState(loc.state);
+        toast({
+          title: "📍 " + (t('shop.detectLocation') || "Location Detected"),
+          description: loc.displayName,
+        });
+      }
+    } catch {
       toast({
-        title: "Geolocation Unavailable",
-        description: "Your browser does not support automatic location detection. Please type your city/district manually.",
+        title: "Could Not Auto-Detect Location",
+        description: "Please enter your city, district or state manually.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsDetectingLocation(false);
     }
-
-    setIsDetectingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsDetectingLocation(false);
-        // Default to state / detected center if available or prompt city
-        const locDesc = userProfile?.location || "Nearby Local Area";
-        setLocationQuery(locDesc);
-        toast({
-          title: "📍 Location Detected",
-          description: `Location set to ${locDesc}. Showing nearest equipment shops and rentals.`,
-        });
-      },
-      (err) => {
-        setIsDetectingLocation(false);
-        // Use user profile location or prompt
-        if (userProfile?.location) {
-          setLocationQuery(userProfile.location);
-          toast({
-            title: "📍 Profile Location Used",
-            description: `Using your profile location: ${userProfile.location}`,
-          });
-        } else {
-          toast({
-            title: "Could Not Auto-Detect Location",
-            description: "Please enter your city, district or state name in the location box.",
-            variant: "destructive",
-          });
-        }
-      },
-      { timeout: 7000 }
-    );
   };
 
   // Helper: check if equipment matches query
@@ -452,10 +440,10 @@ export default function KrishiStorePage() {
         <div className="bg-gradient-to-r from-emerald-600/10 via-emerald-500/5 to-transparent px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
             <Search className="h-4 w-4 text-emerald-600" />
-            <span>Search Equipment Needed & Location</span>
+            <span>{t("shop.searchHeader") || "Search Equipment Needed & Location"}</span>
           </div>
           <span className="text-[11px] text-muted-foreground">
-            Instant matching across authorized dealerships, stores & local farmer rentals
+            {t("shop.searchSubheader") || "Instant matching across authorized dealerships, stores & local farmer rentals"}
           </span>
         </div>
 
@@ -466,7 +454,7 @@ export default function KrishiStorePage() {
               <label className="flex items-center justify-between text-xs font-bold text-foreground">
                 <span className="flex items-center gap-1.5">
                   <Tractor className="h-3.5 w-3.5 text-emerald-600" />
-                  1. Which Equipment do you need?
+                  {t("shop.whichEquipment") || "1. Which Equipment do you need?"}
                 </span>
                 <span className="text-[10px] text-muted-foreground font-normal">
                   (e.g. Small Tractor, Rotavator, Drone)
@@ -477,7 +465,7 @@ export default function KrishiStorePage() {
                 <Input
                   value={equipmentQuery}
                   onChange={(e) => setEquipmentQuery(e.target.value)}
-                  placeholder="Type equipment (e.g. Small Tractor, Rotavator, Power Tiller, Harvester...)"
+                  placeholder={t("shop.equipmentPlaceholder") || "Type equipment (e.g. Small Tractor, Rotavator, Power Tiller, Harvester...)"}
                   className="pl-10 h-11 text-xs font-medium rounded-xl border-input/80 focus:border-emerald-500 shadow-inner"
                 />
                 {equipmentQuery && (
@@ -496,7 +484,7 @@ export default function KrishiStorePage() {
               <label className="flex items-center justify-between text-xs font-bold text-foreground">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                  2. Enter Your Location (City, District, State)
+                  {t("shop.enterLocation") || "2. Enter Your Location (City, District, State)"}
                 </span>
                 <button
                   type="button"
@@ -505,7 +493,7 @@ export default function KrishiStorePage() {
                   className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
                 >
                   <Navigation className="h-3 w-3" />
-                  {isDetectingLocation ? "Detecting..." : "Detect Location"}
+                  {isDetectingLocation ? (t("shop.detecting") || "Detecting...") : (t("shop.detectLocation") || "Detect Location")}
                 </button>
               </label>
               <div className="relative">
@@ -513,7 +501,7 @@ export default function KrishiStorePage() {
                 <Input
                   value={locationQuery}
                   onChange={(e) => setLocationQuery(e.target.value)}
-                  placeholder="Enter your City, District, Village or State (e.g. Pune, Dehradun, Lucknow...)"
+                  placeholder={t("shop.locationPlaceholder") || "Enter your City, District, Village or State (e.g. Pune, Dehradun, Lucknow...)"}
                   className="pl-10 pr-24 h-11 text-xs font-medium rounded-xl border-input/80 focus:border-emerald-500 shadow-inner"
                 />
                 {locationQuery ? (
@@ -598,20 +586,20 @@ export default function KrishiStorePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border/60 text-xs">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-muted-foreground">
-                Showing results for:{" "}
+                {t("shop.showingResultsFor") || "Showing results for:"}{" "}
                 <strong className="text-foreground">
                   {equipmentQuery || (selectedCategory !== "All Machinery" ? selectedCategory : "All Farm Machinery")}
                 </strong>{" "}
-                in{" "}
+                {t("shop.in") || "in"}{" "}
                 <strong className="text-foreground">
                   {locationQuery || (selectedState !== "all" ? selectedState : "All India")}
                 </strong>
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">
-                {filteredStores.length} Stores to Buy
+                {filteredStores.length} {t("shop.storesToBuy") || "Stores to Buy"}
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-bold">
-                {filteredRentals.length} Machinery on Rent
+                {filteredRentals.length} {t("shop.machineryOnRent") || "Machinery on Rent"}
               </span>
             </div>
 
@@ -619,7 +607,7 @@ export default function KrishiStorePage() {
               <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold rounded-lg border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
                 <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
                   <Compass className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                  Open Live Stores on Google Maps
+                  {t("shop.openGoogleMaps") || "Open Live Stores on Google Maps"}
                   <ExternalLink className="h-3 w-3 ml-1 text-muted-foreground" />
                 </a>
               </Button>
@@ -635,7 +623,7 @@ export default function KrishiStorePage() {
                     setSelectedState("all");
                   }}
                 >
-                  Reset
+                  {t("shop.reset") || "Reset"}
                 </Button>
               )}
             </div>
@@ -653,7 +641,7 @@ export default function KrishiStorePage() {
             className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
           >
             <Store className="h-4 w-4 text-emerald-600" />
-            <span>Nearby Stores (Buy Equipment)</span>
+            <span>{t("shop.nearbyStores") || "Nearby Stores (Buy Equipment)"}</span>
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
               {filteredStores.length}
             </Badge>
@@ -664,7 +652,7 @@ export default function KrishiStorePage() {
             className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
           >
             <Wrench className="h-4 w-4 text-blue-600" />
-            <span>Rent Equipment Nearby</span>
+            <span>{t("shop.rentEquipmentNearby") || "Rent Equipment Nearby"}</span>
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
               {filteredRentals.length}
             </Badge>
@@ -675,7 +663,7 @@ export default function KrishiStorePage() {
             className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white shadow-sm"
           >
             <PlusCircle className="h-4 w-4" />
-            <span>Give on Rent (कमाई करें)</span>
+            <span>{t("shop.giveOnRent") || "Give on Rent (कमाई करें)"}</span>
             {userListingsCount > 0 && (
               <Badge className="ml-1 bg-white text-emerald-800 text-[10px] h-5 px-1.5 font-bold">
                 {userListingsCount} Active
@@ -835,10 +823,12 @@ export default function KrishiStorePage() {
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-foreground">
-                  No verified dealerships found in &ldquo;{locationQuery || selectedState}&rdquo; matching &ldquo;{equipmentQuery || selectedCategory}&rdquo;
+                  {t("shop.noNearbyStores") || "No nearby stores were found for this equipment and location."}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-lg mx-auto">
-                  Don&apos;t worry! You can search live on Google Maps for local farm equipment shops in your exact locality, or view authorized dealerships across nearby districts that offer delivery.
+                  {locationQuery || selectedState !== "all" 
+                    ? `No verified equipment stores matching "${equipmentQuery || selectedCategory}" in ${locationQuery || selectedState}.`
+                    : "No verified stores matching criteria."}
                 </p>
               </div>
 

@@ -13,11 +13,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { recommendCrops, type RecommendCropsOutput } from '@/ai/flows/recommend-crops';
-import { Bot, Leaf, Droplets, Sun, Sparkles, ArrowRight, Mic, Square, CheckCircle, CalendarDays, Wheat, Carrot, Grape, MapPin, TrendingUp, RefreshCw, Layers, Coins } from 'lucide-react';
+import { Bot, Leaf, Droplets, Sun, Sparkles, ArrowRight, Mic, Square, CheckCircle, CalendarDays, Wheat, Carrot, Grape, MapPin, TrendingUp, RefreshCw, Layers, Coins, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/contexts/language-context';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocation } from '@/contexts/location-context';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Icons } from '@/components/icons';
 import { LocationPicker, type LocationData } from '@/components/location-picker';
@@ -66,6 +67,9 @@ export function CropRecommenderClient() {
   const { t, language } = useTranslation();
   const { userProfile } = useAuth();
   const lang = language as SupportedLanguage;
+  const isHi = language === 'hi';
+
+  const { location: sharedLocation, setLocation: setSharedLocation } = useLocation();
 
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<RecommendCropsOutput | null>(null);
@@ -89,11 +93,28 @@ export function CropRecommenderClient() {
   });
 
   useEffect(() => {
-    if (userProfile?.location) {
+    if (sharedLocation?.displayName && !watch('location')) {
+      setValue('location', sharedLocation.displayName);
+      if (sharedLocation.latitude) setValue('latitude', sharedLocation.latitude);
+      if (sharedLocation.longitude) setValue('longitude', sharedLocation.longitude);
+      if (sharedLocation.state) setValue('state', sharedLocation.state);
+      if (sharedLocation.district) setValue('district', sharedLocation.district);
+      if (sharedLocation.city) setValue('city', sharedLocation.city);
+      if (sharedLocation.country) setValue('country', sharedLocation.country);
+      setSelectedLocation({
+        displayName: sharedLocation.displayName,
+        latitude: sharedLocation.latitude || 23.2,
+        longitude: sharedLocation.longitude || 77.08,
+        state: sharedLocation.state || null,
+        district: sharedLocation.district || null,
+        city: sharedLocation.city || null,
+        country: sharedLocation.country || 'India',
+      });
+    } else if (userProfile?.location && !watch('location')) {
       setValue('location', userProfile.location);
     }
     setValue('language', language);
-  }, [userProfile, setValue, language]);
+  }, [sharedLocation, userProfile, setValue, language, watch]);
 
   // ── Location-aware soil types ──────────────────────────────────────────────
   const currentState = selectedLocation?.state || null;
@@ -107,6 +128,15 @@ export function CropRecommenderClient() {
   // ── Handle map location change ─────────────────────────────────────────────
   const handleLocationChange = (locationData: LocationData) => {
     setSelectedLocation(locationData);
+    setSharedLocation({
+      displayName: locationData.displayName,
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      state: locationData.state || null,
+      district: locationData.district || null,
+      city: locationData.city || null,
+      country: locationData.country || 'India',
+    });
     setValue('location', locationData.displayName);
     setValue('latitude', locationData.latitude);
     setValue('longitude', locationData.longitude);
@@ -125,7 +155,7 @@ export function CropRecommenderClient() {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', kn: 'kn-IN', bn: 'bn-IN', bho: 'bho-IN' };
+    const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', mr: 'mr-IN', bn: 'bn-IN', ta: 'ta-IN', kn: 'kn-IN', bho: 'bho-IN' };
     recognition.lang = langMap[language] || 'en-IN';
     recognition.onstart = () => setRecordingField(field);
     recognition.onresult = (event: any) => setValue(field, event.results[0][0].transcript);
@@ -149,11 +179,12 @@ export function CropRecommenderClient() {
         language: language, // always use current selected language
       });
       setResult(recommendationResult);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const isHi = language === 'hi';
       toast({
-        title: t('toast.recommendationFailed'),
-        description: t('toast.errorGeneratingRecommendation'),
+        title: isHi ? 'AI सिफारिशें विफल' : 'Recommendation Generation Failed',
+        description: error?.message || (isHi ? 'वर्तमान में AI सिफारिशें उत्पन्न करने में असमर्थ। कृपया पुनः प्रयास करें।' : 'Unable to generate AI recommendations right now. Please try again.'),
         variant: "destructive",
       });
     } finally {
@@ -345,8 +376,10 @@ export function CropRecommenderClient() {
             </div>
 
             <Button type="submit" disabled={isLoading} className="w-full !mt-6">
-              <Sparkles className="mr-2 h-4 w-4" />
-              {isLoading ? t('cropRecommender.client.gettingRecommendations') : t('cropRecommender.client.getRecommendations')}
+              <Sparkles className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading
+                ? (language === 'hi' ? 'AI आपके खेत की स्थिति का विश्लेषण कर रहा है...' : 'AI is analyzing your farm conditions...')
+                : (t('cropRecommender.client.getRecommendations') || 'Get Recommendations')}
             </Button>
           </form>
         </CardContent>
@@ -356,23 +389,98 @@ export function CropRecommenderClient() {
       <div className="lg:col-span-7 xl:col-span-8">
         <h2 className="text-2xl font-bold mb-4 font-headline">{t('cropRecommender.client.resultsTitle')}</h2>
 
-        {result?.recommendations && !isLoading && (
+        {/* ── Empty / Insufficient Data State (Requirement 3: No Hallucinations) ── */}
+        {result && result.recommendations.length === 0 && !isLoading && (
+          <Card className="border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-8 text-center space-y-4">
+            <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-foreground">
+                {lang === 'hi'
+                  ? 'दी गई परिस्थितियों के लिए कोई उपयुक्त फसल नहीं मिली'
+                  : lang === 'pa'
+                  ? 'ਦਿੱਤੀਆਂ ਗਈਆਂ ਸ਼ਰਤਾਂ ਅਨੁਸਾਰ ਕੋਈ ਢੁਕਵੀਂ ਫ਼ਸਲ ਨਹੀਂ ਮਿਲੀ'
+                  : lang === 'mr'
+                  ? 'दिलेल्या परिस्थितीनुसार कोणतेही योग्य पीक आढळले नाही'
+                  : lang === 'bn'
+                  ? 'প্রদত্ত পরিস্থিতির জন্য কোনো উপযুক্ত ফসল পাওয়া যায়নি'
+                  : lang === 'ta'
+                  ? 'கொடுக்கப்பட்ட நிபந்தனைகளுக்கு ஏற்ற பயிர் எதுவும் கிடைக்கவில்லை'
+                  : 'No Suitable Verified Crop Found'}
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-lg mx-auto">
+                {result.farm_assessment ||
+                  (lang === 'hi'
+                    ? 'मौसम, मिट्टी, और सिंचाई की स्थिति के कड़े कृषि मानकों के अनुसार कोई भी फसल उपयुक्त नहीं पाई गई। कृपया अन्य मौसम या सिंचाई का प्रकार चुनकर पुनः प्रयास करें।'
+                    : 'No verified crop in our agricultural database satisfied all constraints (season, soil compatibility, and irrigation feasibility). Please adjust your farm parameters.')}
+              </p>
+            </div>
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setResult(null)}
+              >
+                {lang === 'hi'
+                  ? 'मापदंड संशोधित करें'
+                  : lang === 'pa'
+                  ? 'ਮਾਪਦੰਡ ਬਦਲੋ'
+                  : lang === 'mr'
+                  ? 'मापदंड बदला'
+                  : lang === 'bn'
+                  ? 'পরামিতি সংশোধন করুন'
+                  : lang === 'ta'
+                  ? 'அளவுருக்களை மாற்றவும்'
+                  : 'Adjust Parameters'}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Verified Recommendation Results ─────────────────────────────────── */}
+        {result?.recommendations && result.recommendations.length > 0 && !isLoading && (
           <div className="space-y-6">
-            {/* Field Assessment Executive Summary */}
-            {result.fieldSummary && (
+            {/* Field Assessment Executive Summary (Dynamically Generated from AI) */}
+            {(result.farm_assessment || result.fieldSummary) && (
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 shadow-xs">
                 <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                   <Sparkles className="h-5 w-5" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-sm text-emerald-950 dark:text-emerald-200">
-                    Field Suitability Analysis (खेत विश्लेषण)
-                  </h3>
-                  <p className="text-xs sm:text-sm text-emerald-900/90 dark:text-emerald-300/90 leading-relaxed">
-                    {result.fieldSummary}
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h3 className="font-bold text-sm text-emerald-950 dark:text-emerald-200">
+                      {lang === 'hi' ? 'खेत उपयुक्तता विश्लेषण' : lang === 'pa' ? 'ਖੇਤ ਅਨੁਕੂਲਤਾ ਵਿਸ਼ਲੇਸ਼ਣ' : lang === 'mr' ? 'शेती उपयुक्तता विश्लेषण' : lang === 'bn' ? 'ক্ষেতের উপযুক্ততা বিশ্লেষণ' : lang === 'ta' ? 'நில பொருத்தப்பாடு பகுப்பாய்வு' : 'Field Suitability Analysis'}
+                    </h3>
+                    {result.location_summary && (
+                      <Badge variant="outline" className="text-[11px] font-normal border-emerald-500/30 text-emerald-900 dark:text-emerald-200">
+                        {result.location_summary}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-emerald-900/90 dark:text-emerald-300/90 leading-relaxed whitespace-pre-line">
+                    {result.farm_assessment || result.fieldSummary}
                   </p>
                 </div>
               </div>
+            )}
+
+            {/* Advisory Warnings from AI if present */}
+            {result.warnings && result.warnings.length > 0 && (
+              <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200">
+                <AlertTitle className="text-xs font-bold uppercase tracking-wider">
+                  {lang === 'hi' ? 'कृषि परामर्श व चेतावनियाँ' : lang === 'pa' ? 'ਖੇਤੀਬਾੜੀ ਸਲਾਹ ਅਤੇ ਚੇਤਾਵਨੀਆਂ' : lang === 'mr' ? 'कृषी सल्ला आणि सूचना' : lang === 'bn' ? 'কৃষি পরামর্শ ও সতর্কতা' : lang === 'ta' ? 'வேளாண் ஆலோசனை மற்றும் எச்சரிக்கைகள்' : 'Agro-Climate Advisory & Warnings'}
+                </AlertTitle>
+                <AlertDescription className="text-xs space-y-1 mt-1">
+                  {result.warnings.map((w, idx) => (
+                    <div key={idx} className="flex items-start gap-1.5">
+                      <span>•</span>
+                      <span>{w}</span>
+                    </div>
+                  ))}
+                </AlertDescription>
+              </Alert>
             )}
 
             <div className="space-y-6">
@@ -386,22 +494,43 @@ export function CropRecommenderClient() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <CardTitle className="text-lg font-bold font-headline">{rec.cropName}</CardTitle>
+                            <CardTitle className="text-lg font-bold font-headline">{rec.crop || rec.cropName}</CardTitle>
                             {rec.variety && (
                               <Badge variant="secondary" className="text-xs font-semibold">
                                 {rec.variety}
                               </Badge>
                             )}
                           </div>
-                          <CardDescription className="flex items-center gap-2 mt-1 text-xs">
+                          <CardDescription className="flex items-center gap-2 mt-1 text-xs flex-wrap">
                             <CalendarDays className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Sowing Window: <strong>{rec.plantingDates}</strong></span>
+                            <span>
+                              {lang === 'hi' ? 'बुवाई का समय:' : lang === 'pa' ? 'ਬਿਜਾਈ ਦਾ ਸਮਾਂ:' : lang === 'mr' ? 'पेरणीची वेळ:' : lang === 'bn' ? 'বপনের সময়:' : lang === 'ta' ? 'விதைக்கும் காலம்:' : 'Sowing Window:'} <strong>{rec.sowing_window || rec.plantingDates}</strong>
+                            </span>
+                            {rec.growing_period && (
+                              <span className="text-muted-foreground ml-1.5">
+                                • {lang === 'hi' ? 'फसल अवधि:' : lang === 'pa' ? 'ਫ਼ਸਲ ਦੀ ਮਿਆਦ:' : lang === 'mr' ? 'कालावधी:' : lang === 'bn' ? 'সময়কাল:' : lang === 'ta' ? 'கால அளவு:' : 'Duration:'} <strong>{rec.growing_period}</strong>
+                              </span>
+                            )}
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge className="w-fit bg-emerald-700 hover:bg-emerald-800 text-white text-xs">
-                        Top Pick #{index + 1}
-                      </Badge>
+
+                      {/* Rank & AI Suitability Score */}
+                      <div className="flex flex-col items-start sm:items-end gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="w-fit bg-emerald-700 hover:bg-emerald-800 text-white text-xs">
+                            {lang === 'hi' ? `शीर्ष पसंद #${rec.rank || index + 1}` : lang === 'pa' ? `ਪਹਿਲੀ ਪਸੰਦ #${rec.rank || index + 1}` : lang === 'mr' ? `सर्वोत्तम निवड #${rec.rank || index + 1}` : lang === 'bn' ? `শীর্ষ পছন্দ #${rec.rank || index + 1}` : lang === 'ta' ? `முதன்மைத் தேர்வு #${rec.rank || index + 1}` : `Top Pick #${rec.rank || index + 1}`}
+                          </Badge>
+                          {rec.suitability_score !== undefined && (
+                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-semibold text-xs">
+                              {lang === 'hi' ? `AI उपयुक्तता स्कोर: ${rec.suitability_score}%` : lang === 'pa' ? `AI ਅਨੁਕੂਲਤਾ ਸਕੋਰ: ${rec.suitability_score}%` : lang === 'mr' ? `AI उपयुक्तता स्कोअर: ${rec.suitability_score}%` : lang === 'bn' ? `AI উপযুক্ততা স্কোর: ${rec.suitability_score}%` : lang === 'ta' ? `AI பொருத்தப்பாடு மதிப்பெண்: ${rec.suitability_score}%` : `AI Suitability Score: ${rec.suitability_score}%`}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground italic">
+                          {lang === 'hi' ? 'सत्यापित कृषि नियमों के आधार पर वैज्ञानिक स्कोर।' : 'Scientific score based on verified agronomic rules.'}
+                        </span>
+                      </div>
                     </div>
                   </CardHeader>
 
@@ -409,97 +538,157 @@ export function CropRecommenderClient() {
                     {/* Why this crop matches your filled details */}
                     <div className="p-3 bg-muted/30 rounded-xl border border-border/60">
                       <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-1">
-                        Agronomic Match for Your Farm
+                        {lang === 'hi' ? 'खेत व मिट्टी के अनुसार वैज्ञानिक उपयुक्तता' : lang === 'pa' ? 'ਖੇਤ ਅਤੇ ਮਿੱਟੀ ਅਨੁਸਾਰ ਵਿਗਿਆਨਕ ਅਨੁਕੂਲਤਾ' : lang === 'mr' ? 'शेत आणि मातीनुसार वैज्ञानिक उपयुक्तता' : lang === 'bn' ? 'ক্ষেত ও মাটি অনুসারে বৈজ্ঞানিক উপযুক্ততা' : lang === 'ta' ? 'மண் மற்றும் நிலத்திற்கான அறிவியல் பொருத்தப்பாடு' : 'Agronomic Match for Your Farm'}
                       </h4>
                       <p className="text-foreground leading-relaxed">
-                        {rec.reasoning}
+                        {rec.agronomic_reason || rec.why_recommended || rec.reasoning}
                       </p>
                     </div>
 
                     {/* Key Detail Grids tailored to inputs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {rec.yieldEstimate && (
-                        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 space-y-1">
-                          <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 uppercase">
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> Expected Yield & Revenue
-                          </span>
-                          <p className="text-xs text-foreground/90 font-medium">
-                            {rec.yieldEstimate}
+                      {/* Programmatically Calculated Yield & Revenue */}
+                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 space-y-1.5 md:col-span-2">
+                        <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 uppercase">
+                          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                          {lang === 'hi' ? 'अनुमानित उपज व सकल आय' : lang === 'pa' ? 'ਅਨੁਮਾਨਿਤ ਝਾੜ ਅਤੇ ਕੁੱਲ ਆਮਦਨ' : lang === 'mr' ? 'अंदाजे उत्पादन आणि उत्पन्न' : lang === 'bn' ? 'আনুমানিক ফলন ও মোট আয়' : lang === 'ta' ? 'எதிர்பார்க்கப்படும் மகசூல் மற்றும் வருமானம்' : 'Expected Yield & Revenue'}
+                        </span>
+                        <p className="text-xs text-foreground/90 font-medium whitespace-pre-line">
+                          {rec.calculated_yield_display || rec.yieldEstimate}
+                        </p>
+                        {rec.calculated_revenue_display && (
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold whitespace-pre-line">
+                            {rec.calculated_revenue_display}
                           </p>
-                        </div>
-                      )}
+                        )}
+                        {rec.market_assessment && (
+                          <p className="text-[11px] text-muted-foreground pt-1 border-t border-emerald-500/10">
+                            <strong>{lang === 'hi' ? 'मंडी मांग व खरीद:' : lang === 'pa' ? 'ਮੰਡੀ ਮੰਗ ਅਤੇ ਖਰੀਦ:' : lang === 'mr' ? 'बाजार मागणी आणि खरेदी:' : lang === 'bn' ? 'বাজারের চাহিদা ও ক্রয়:' : lang === 'ta' ? 'சந்தை தேவை மற்றும் கொள்முதல்:' : 'Market Demand & Procurement:'}</strong> {rec.market_assessment}
+                          </p>
+                        )}
+                      </div>
 
-                      {rec.soilSuitability && (
+                      {/* Soil Compatibility */}
+                      {(rec.soil_compatibility || rec.soilSuitability) && (
                         <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 space-y-1">
                           <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 uppercase">
-                            <Layers className="h-3.5 w-3.5 text-amber-600" /> Soil Compatibility
+                            <Layers className="h-3.5 w-3.5 text-amber-600" />
+                            {lang === 'hi' ? 'मिट्टी अनुकूलता' : lang === 'pa' ? 'ਮਿੱਟੀ ਅਨੁਕੂਲਤਾ' : lang === 'mr' ? 'माती सुसंगतता' : lang === 'bn' ? 'মাটি সামঞ্জস্যতা' : lang === 'ta' ? 'மண் பொருத்தம்' : 'Soil Compatibility'}
                           </span>
                           <p className="text-xs text-foreground/90">
-                            {rec.soilSuitability}
+                            {rec.soil_compatibility || rec.soilSuitability}
                           </p>
                         </div>
                       )}
 
-                      {rec.irrigationPlan && (
+                      {/* Irrigation & Moisture */}
+                      {(rec.irrigation_advice || rec.irrigationPlan) && (
                         <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/15 space-y-1">
                           <span className="text-[11px] font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5 uppercase">
-                            <Droplets className="h-3.5 w-3.5 text-blue-600" /> Irrigation & Moisture
+                            <Droplets className="h-3.5 w-3.5 text-blue-600" />
+                            {lang === 'hi' ? 'सिंचाई व नमी प्रबंधन' : lang === 'pa' ? 'ਸਿੰਚਾਈ ਅਤੇ ਨਮੀ ਪ੍ਰਬੰਧਨ' : lang === 'mr' ? 'सिंचन आणि ओलावा व्यवस्थापन' : lang === 'bn' ? 'সেচ ও আর্দ্রতা ব্যবস্থাপনা' : lang === 'ta' ? 'பாசனம் மற்றும் ஈரப்பத மேலாண்மை' : 'Irrigation & Moisture'}
                           </span>
                           <p className="text-xs text-foreground/90">
-                            {rec.irrigationPlan}
+                            {rec.irrigation_advice || rec.irrigationPlan}
                           </p>
+                          {rec.water_requirement && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {lang === 'hi' ? 'जल आवश्यकता:' : lang === 'pa' ? 'ਪਾਣੀ ਦੀ ਲੋੜ:' : lang === 'mr' ? 'पाण्याची गरज:' : lang === 'bn' ? 'পানির প্রয়োজনীয়তা:' : lang === 'ta' ? 'நீர் தேவை:' : 'Water Requirement:'} {rec.water_requirement}
+                            </p>
+                          )}
                         </div>
                       )}
 
-                      {rec.cropRotationBenefit && (
+                      {/* Crop Rotation Impact */}
+                      {(rec.crop_rotation_impact || rec.cropRotationBenefit) && (
                         <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/15 space-y-1">
                           <span className="text-[11px] font-bold text-purple-800 dark:text-purple-300 flex items-center gap-1.5 uppercase">
-                            <RefreshCw className="h-3.5 w-3.5 text-purple-600" /> Crop Rotation Impact
+                            <RefreshCw className="h-3.5 w-3.5 text-purple-600" />
+                            {lang === 'hi' ? 'फसल चक्र प्रभाव' : lang === 'pa' ? 'ਫ਼ਸਲੀ ਚੱਕਰ ਪ੍ਰਭਾਵ' : lang === 'mr' ? 'पीक फेरपालट प्रभाव' : lang === 'bn' ? 'ফসল চক্রের প্রভাব' : lang === 'ta' ? 'பயிர் சுழற்சி தாக்கம்' : 'Crop Rotation Impact'}
                           </span>
                           <p className="text-xs text-foreground/90">
-                            {rec.cropRotationBenefit}
+                            {rec.crop_rotation_impact || rec.cropRotationBenefit}
                           </p>
                         </div>
                       )}
 
-                      {rec.budgetFeasibility && (
-                        <div className="p-3 rounded-xl bg-slate-500/5 border border-slate-500/15 space-y-1 md:col-span-2">
+                      {/* Budget & Input Feasibility */}
+                      {(rec.budget_feasibility || rec.budgetFeasibility) && (
+                        <div className="p-3 rounded-xl bg-slate-500/5 border border-slate-500/15 space-y-1">
                           <span className="text-[11px] font-bold text-slate-800 dark:text-slate-300 flex items-center gap-1.5 uppercase">
-                            <Coins className="h-3.5 w-3.5 text-slate-600" /> Budget & Input Feasibility
+                            <Coins className="h-3.5 w-3.5 text-slate-600" />
+                            {lang === 'hi' ? 'बजट व लागत अनुकूलता' : lang === 'pa' ? 'ਬਜਟ ਅਤੇ ਲਾਗਤ ਅਨੁਕੂਲਤਾ' : lang === 'mr' ? 'अंदाजपत्रक व खर्च सुसंगतता' : lang === 'bn' ? 'বাজেট ও ব্যয় উপযুক্ততা' : lang === 'ta' ? 'பட்ஜெட் மற்றும் செலவு பொருத்தம்' : 'Budget & Input Feasibility'}
                           </span>
                           <p className="text-xs text-foreground/90">
-                            {rec.budgetFeasibility}
+                            {rec.budget_feasibility || rec.budgetFeasibility}
                           </p>
                         </div>
                       )}
                     </div>
 
                     {/* Key Benefits List */}
-                    <div>
-                      <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                        {t('cropRecommender.client.keyBenefits')}
-                      </h4>
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {rec.benefits.map((benefit, i) => (
-                          <li key={i} className="flex items-start gap-2 bg-muted/20 p-2 rounded-lg border border-border/40">
-                            <CheckCircle className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                            <span className="leading-snug">{benefit}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {rec.key_benefits && rec.key_benefits.length > 0 && (
+                      <div>
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                          {lang === 'hi' ? 'मुख्य कृषि लाभ' : lang === 'pa' ? 'ਮੁੱਖ ਖੇਤੀ ਲਾਭ' : lang === 'mr' ? 'मुख्य कृषी फायदे' : lang === 'bn' ? 'প্রধান কৃষি সুবিধা' : lang === 'ta' ? 'முக்கிய வேளாண் நன்மைகள்' : t('cropRecommender.client.keyBenefits')}
+                        </h4>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          {rec.key_benefits.map((benefit, i) => (
+                            <li key={i} className="flex items-start gap-2 bg-muted/20 p-2 rounded-lg border border-border/40">
+                              <CheckCircle className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                              <span className="leading-snug">{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Risk Factors & Mitigation */}
+                    {rec.risks && rec.risks.length > 0 && (
+                      <div className="p-2.5 rounded-lg bg-red-500/5 border border-red-500/15 space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">
+                          {lang === 'hi' ? 'जोखिम कारक व समाधान' : lang === 'pa' ? 'ਜੋਖਮ ਅਤੇ ਹੱਲ' : lang === 'mr' ? 'धोके आणि उपाय' : lang === 'bn' ? 'ঝুঁকি ও প্রতিকার' : lang === 'ta' ? 'அபாய காரணிகள் மற்றும் தீர்வுகள்' : 'Risk Factors & Mitigation'}
+                        </span>
+                        <ul className="text-xs text-foreground/80 space-y-0.5 list-disc list-inside">
+                          {rec.risks.map((r, rIdx) => (
+                            <li key={rIdx}>{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Important Considerations */}
+                    {rec.important_considerations && rec.important_considerations.length > 0 && (
+                      <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/15 space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                          {lang === 'hi' ? 'महत्वपूर्ण कृषि सावधानियां' : lang === 'pa' ? 'ਮਹੱਤਵਪੂਰਨ ਸਾਵਧਾਨੀਆਂ' : lang === 'mr' ? 'महत्त्वाच्या सूचना' : lang === 'bn' ? 'গুরুত্বপূর্ণ সতর্কতা' : lang === 'ta' ? 'முக்கிய குறிப்புகள்' : 'Important Agronomic Considerations'}
+                        </span>
+                        <ul className="text-xs text-foreground/80 space-y-0.5 list-disc list-inside">
+                          {rec.important_considerations.map((c, cIdx) => (
+                            <li key={cIdx}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </CardContent>
 
                   <CardFooter className="bg-muted/10 border-t py-3 px-5 flex justify-end">
                     <Button asChild size="sm" variant="outline" className="text-xs">
-                      <Link href={`/dashboard/learn?q=${encodeURIComponent(rec.cropName)}`}>
-                        {t('cropRecommender.client.learnMore')} <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      <Link href={`/dashboard/learn?q=${encodeURIComponent(rec.crop || rec.cropName)}`}>
+                        {lang === 'hi' ? 'अधिक जानकारी' : lang === 'pa' ? 'ਹੋਰ ਜਾਣਕਾਰੀ' : lang === 'mr' ? 'अधिक माहिती' : lang === 'bn' ? 'আরও জানুন' : lang === 'ta' ? 'மேலும் அறிக' : t('cropRecommender.client.learnMore')} <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                       </Link>
                     </Button>
                   </CardFooter>
                 </Card>
               ))}
             </div>
+
+            {/* Data sources footer */}
+            {result.data_sources && result.data_sources.length > 0 && (
+              <p className="text-[11px] text-muted-foreground text-center">
+                {lang === 'hi' ? 'डेटा व कृषि स्रोत:' : lang === 'pa' ? 'ਡਾਟਾ ਅਤੇ ਖੇਤੀ ਸਰੋਤ:' : lang === 'mr' ? 'माहिती आणि कृषी स्रोत:' : lang === 'bn' ? 'উপাত্ত ও কৃষি উৎস:' : lang === 'ta' ? 'தரவு மற்றும் வேளாண் ஆதாரங்கள்:' : 'Data & Agronomy Sources:'} {result.data_sources.join(' • ')}
+              </p>
+            )}
           </div>
         )}
 

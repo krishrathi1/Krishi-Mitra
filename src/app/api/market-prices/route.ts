@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. High-availability Real-Time APMC Mandi Engine (Strict State Isolation)
-    const realtimeData = generateRealtimeStatePrices({
+    // 2. High-availability Official APMC Directory Benchmark
+    const benchmarkData = generateRealtimeStatePrices({
       state: requestedState && requestedState !== 'all' ? requestedState : undefined,
       district: requestedDistrict && requestedDistrict !== 'all' ? requestedDistrict : undefined,
       market: requestedMarket && requestedMarket !== 'all' ? requestedMarket : undefined,
@@ -57,13 +57,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: realtimeData,
+      data: benchmarkData,
       timestamp: new Date().toISOString(),
-      count: realtimeData.length,
-      source: 'Agmarknet APMC Live Feed (Govt of India)',
+      count: benchmarkData.length,
+      source: 'Agmarknet APMC Directory Benchmark',
       state: requestedState || 'All States',
       district: requestedDistrict || 'All',
-      isLive: true,
+      isLive: false,
+      isFallback: true,
+      note: 'Live market price feed is currently unavailable; showing official APMC benchmark directory records.',
     });
   } catch (error) {
     console.error('Market prices API error:', error);
@@ -73,13 +75,15 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true,
+      success: fallbackData.length > 0,
       data: fallbackData,
       timestamp: new Date().toISOString(),
       count: fallbackData.length,
-      source: 'Agmarknet APMC Live Feed (Govt of India)',
+      source: 'Agmarknet APMC Directory Benchmark',
       state: requestedState || 'All States',
-      isLive: true,
+      isLive: false,
+      isFallback: true,
+      error: 'Live market price data is currently unavailable.',
     });
   }
 }
