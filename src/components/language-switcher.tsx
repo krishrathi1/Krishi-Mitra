@@ -14,11 +14,13 @@ import { toast } from "@/hooks/use-toast";
 
 const languages: { code: Language; name: string; native: string }[] = [
   { code: 'hi', name: 'Hindi', native: 'हिंदी' },
-  { code: 'pa', name: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
-  { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
-  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
-  { code: 'bho', name: 'Bhojpuri', native: 'भोजपुरी' },
   { code: 'en', name: 'English', native: 'English' },
+  { code: 'pa', name: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
+  { code: 'mr', name: 'Marathi', native: 'मराठी' },
+  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
+  { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
+  { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
+  { code: 'bho', name: 'Bhojpuri', native: 'भोजपुरी' },
 ];
 
 export function LanguageSwitcher() {
@@ -47,10 +49,11 @@ export function LanguageSwitcher() {
         <Button 
           variant="ghost" 
           size="sm" 
+          suppressHydrationWarning
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold border border-emerald-500/20 shadow-sm transition-all"
         >
           <Languages className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="text-xs uppercase font-bold tracking-wider">{currentLangObj.code}</span>
+          <span className="text-xs uppercase font-bold tracking-wider" suppressHydrationWarning>{currentLangObj.code}</span>
           <span className="sr-only">Change language</span>
         </Button>
       </DropdownMenuTrigger>

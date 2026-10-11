@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { LocationProvider } from "@/contexts/location-context";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -50,8 +52,10 @@ export default function RootLayout({
           >
             <AuthProvider>
               <LanguageProvider>
-                {children}
-                <Toaster />
+                <LocationProvider>
+                  {children}
+                  <Toaster />
+                </LocationProvider>
               </LanguageProvider>
             </AuthProvider>
         </ThemeProvider>

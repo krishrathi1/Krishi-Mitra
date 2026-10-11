@@ -156,7 +156,7 @@ export default function LearnPage() {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
-        const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', kn: 'kn-IN', bn: 'bn-IN', bho: 'bho-IN' };
+        const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', pa: 'pa-IN', mr: 'mr-IN', bn: 'bn-IN', ta: 'ta-IN', kn: 'kn-IN', bho: 'bho-IN' };
         recognition.lang = langMap[language] || 'en-IN';
     
         recognition.onstart = () => setIsRecording(true);

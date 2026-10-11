@@ -4,14 +4,18 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useAuth } from '@/hooks/use-auth';
 import en from '@/locales/en.json';
 import hi from '@/locales/hi.json';
-import kn from '@/locales/kn.json';
-import bn from '@/locales/bn.json';
-import bho from '@/locales/bho.json';
 import pa from '@/locales/pa.json';
+import mr from '@/locales/mr.json';
+import bn from '@/locales/bn.json';
+import ta from '@/locales/ta.json';
+import kn from '@/locales/kn.json';
+import bho from '@/locales/bho.json';
 
-const translations: Record<string, any> = { en, hi, kn, bn, bho, pa };
+const translations: Record<string, any> = { en, hi, pa, mr, bn, ta, kn, bho };
 
-export type Language = 'en' | 'hi' | 'kn' | 'bn' | 'bho' | 'pa';
+export type Language = 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta' | 'kn' | 'bho';
+
+export const SUPPORTED_LANGUAGES: Language[] = ['en', 'hi', 'pa', 'mr', 'bn', 'ta', 'kn', 'bho'];
 
 const LANGUAGE_STORAGE_KEY = 'beejmantra_preferred_lang';
 
@@ -26,24 +30,14 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const { userProfile, loading: authLoading, updateUserProfile } = useAuth();
   
-  // 1. Initialize language state with immediate local storage lookup
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
-        if (saved && ['en', 'hi', 'kn', 'bn', 'bho', 'pa'].includes(saved)) {
-          return saved;
-        }
-      } catch {}
-    }
-    return 'hi';
-  });
+  // 1. Deterministic default for server and initial client render to avoid hydration mismatch
+  const [language, setLanguageState] = useState<Language>('hi');
 
   // 2. Client-side hydration check
   useEffect(() => {
     try {
       const savedLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
-      if (savedLang && ['en', 'hi', 'kn', 'bn', 'bho', 'pa'].includes(savedLang)) {
+      if (savedLang && SUPPORTED_LANGUAGES.includes(savedLang)) {
         setLanguageState(savedLang);
         document.documentElement.lang = savedLang;
       }
@@ -54,7 +48,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   // 3. Central setLanguage that immediately updates state and persists
   const setLanguage = useCallback((newLang: Language) => {
-    if (!['en', 'hi', 'kn', 'bn', 'bho', 'pa'].includes(newLang)) return;
+    if (!SUPPORTED_LANGUAGES.includes(newLang)) return;
     
     setLanguageState(newLang);
     
@@ -92,7 +86,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (result === undefined) {
-        return key;
+        return '';
     }
     
     if (typeof result === 'string') {
