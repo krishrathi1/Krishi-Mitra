@@ -187,16 +187,26 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </form>
 
         {/* Toggle Sign In / Sign Up */}
-        <div className="text-center pt-2">
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-xs text-[#245B35] hover:text-[#1A4A28] font-bold hover:underline"
-          >
-            {isSignUp
-              ? t("landing.authModal.alreadyHaveAccount")
-              : t("landing.authModal.needAccount")}
-          </button>
+        <div className="text-center pt-2 space-y-1.5">
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-xs text-[#245B35] hover:text-[#1A4A28] font-bold hover:underline cursor-pointer"
+            >
+              {isSignUp
+                ? t("landing.authModal.alreadyHaveAccount")
+                : t("landing.authModal.needAccount")}
+            </button>
+          </div>
+          <div>
+            <a
+              href="/login"
+              className="text-[11px] text-[#756653] hover:text-[#245B35] underline transition-colors"
+            >
+              Open dedicated full login page &rarr;
+            </a>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

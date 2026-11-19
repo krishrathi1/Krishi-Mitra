@@ -7,7 +7,8 @@ import {
   Clock, PlusCircle, Wrench, Sparkles, Search, Filter, 
   ArrowLeft, Award, Send, Check, Truck, Trash2, MessageSquare, 
   ShoppingCart, AlertCircle, Eye, ChevronRight, Navigation,
-  Compass, ExternalLink, HelpCircle, Layers, CheckCheck
+  Compass, ExternalLink, HelpCircle, Layers, CheckCheck,
+  Sprout, Leaf
 } from "lucide-react";
 import { 
   VERIFIED_EQUIPMENT_STORES, 
@@ -15,6 +16,10 @@ import {
   type EquipmentStore, 
   type RentalListing 
 } from "@/lib/store-equipment-data";
+import { SeedsTab } from "./_components/seeds-tab";
+import { FertilizersTab } from "./_components/fertilizers-tab";
+import { AgriInquiryDialog, type AgriInquiryItem } from "./_components/agri-inquiry-dialog";
+import { VERIFIED_SEEDS, VERIFIED_FERTILIZERS } from "@/lib/store-agri-inputs-data";
 import { ALL_INDIAN_STATES_FILTER } from "@/lib/schemes-master-data";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +102,13 @@ export default function KrishiStorePage() {
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [bookingRental, setBookingRental] = useState<RentalListing | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [agriInquiryItem, setAgriInquiryItem] = useState<AgriInquiryItem | null>(null);
+  const [isAgriInquiryOpen, setIsAgriInquiryOpen] = useState(false);
+
+  const handleOpenAgriInquiry = (item: AgriInquiryItem) => {
+    setAgriInquiryItem(item);
+    setIsAgriInquiryOpen(true);
+  };
 
   // Form State: Give Equipment on Rent
   const [newListing, setNewListing] = useState({
@@ -595,12 +607,18 @@ export default function KrishiStorePage() {
                   {locationQuery || (selectedState !== "all" ? selectedState : "All India")}
                 </strong>
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">
-                {filteredStores.length} {t("shop.storesToBuy") || "Stores to Buy"}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-bold">
-                {filteredRentals.length} {t("shop.machineryOnRent") || "Machinery on Rent"}
-              </span>
+              <button onClick={() => setActiveTab("seeds")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold hover:opacity-80 cursor-pointer">
+                🌱 {VERIFIED_SEEDS.length} Certified Seeds
+              </button>
+              <button onClick={() => setActiveTab("fertilizers")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold hover:opacity-80 cursor-pointer">
+                🌿 {VERIFIED_FERTILIZERS.length} Fertilizers & Manure
+              </button>
+              <button onClick={() => setActiveTab("buy-stores")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold hover:opacity-80 cursor-pointer">
+                🚜 {filteredStores.length} {t("shop.storesToBuy") || "Machinery Stores"}
+              </button>
+              <button onClick={() => setActiveTab("rent-equipment")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-bold hover:opacity-80 cursor-pointer">
+                ⚙️ {filteredRentals.length} {t("shop.machineryOnRent") || "Machinery on Rent"}
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -635,13 +653,35 @@ export default function KrishiStorePage() {
       {/* TABS NAVIGATION                                                           */}
       {/* ========================================================================= */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto p-1.5 rounded-2xl bg-muted/60 border border-border/80 shadow-sm">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto p-1.5 rounded-2xl bg-muted/60 border border-border/80 shadow-sm gap-1">
+          <TabsTrigger 
+            value="seeds" 
+            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
+          >
+            <Sprout className="h-4 w-4 text-emerald-600" />
+            <span>Certified Seeds</span>
+            <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
+              {VERIFIED_SEEDS.length}
+            </Badge>
+          </TabsTrigger>
+
+          <TabsTrigger 
+            value="fertilizers" 
+            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
+          >
+            <Leaf className="h-4 w-4 text-emerald-600" />
+            <span>Manure & Fertilizers</span>
+            <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
+              {VERIFIED_FERTILIZERS.length}
+            </Badge>
+          </TabsTrigger>
+
           <TabsTrigger 
             value="buy-stores" 
-            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
+            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
           >
             <Store className="h-4 w-4 text-emerald-600" />
-            <span>{t("shop.nearbyStores") || "Nearby Stores (Buy Equipment)"}</span>
+            <span>{t("shop.nearbyStores") || "Machinery Stores"}</span>
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
               {filteredStores.length}
             </Badge>
@@ -649,10 +689,10 @@ export default function KrishiStorePage() {
 
           <TabsTrigger 
             value="rent-equipment" 
-            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
           >
             <Wrench className="h-4 w-4 text-blue-600" />
-            <span>{t("shop.rentEquipmentNearby") || "Rent Equipment Nearby"}</span>
+            <span>{t("shop.rentEquipmentNearby") || "Rent Equipment"}</span>
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
               {filteredRentals.length}
             </Badge>
@@ -660,10 +700,10 @@ export default function KrishiStorePage() {
 
           <TabsTrigger 
             value="give-on-rent" 
-            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white shadow-sm"
+            className="py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 rounded-xl transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white shadow-sm"
           >
             <PlusCircle className="h-4 w-4" />
-            <span>{t("shop.giveOnRent") || "Give on Rent (कमाई करें)"}</span>
+            <span>{t("shop.giveOnRent") || "Give on Rent"}</span>
             {userListingsCount > 0 && (
               <Badge className="ml-1 bg-white text-emerald-800 text-[10px] h-5 px-1.5 font-bold">
                 {userListingsCount} Active
@@ -671,6 +711,28 @@ export default function KrishiStorePage() {
             )}
           </TabsTrigger>
         </TabsList>
+
+        {/* ========================================================================= */}
+        {/* TAB: CERTIFIED SEEDS                                                      */}
+        {/* ========================================================================= */}
+        <TabsContent value="seeds" className="space-y-6">
+          <SeedsTab
+            locationQuery={locationQuery}
+            selectedState={selectedState}
+            onOpenInquiry={handleOpenAgriInquiry}
+          />
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB: MANURE & FERTILIZERS                                                 */}
+        {/* ========================================================================= */}
+        <TabsContent value="fertilizers" className="space-y-6">
+          <FertilizersTab
+            locationQuery={locationQuery}
+            selectedState={selectedState}
+            onOpenInquiry={handleOpenAgriInquiry}
+          />
+        </TabsContent>
 
         {/* ========================================================================= */}
         {/* TAB 1: NEARBY STORES (BUY EQUIPMENT)                                      */}
@@ -1490,6 +1552,17 @@ export default function KrishiStorePage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ========================================================================= */}
+      {/* AGRI INQUIRY MODAL (SEEDS & FERTILIZERS)                                  */}
+      {/* ========================================================================= */}
+      <AgriInquiryDialog
+        item={agriInquiryItem}
+        isOpen={isAgriInquiryOpen}
+        onClose={() => setIsAgriInquiryOpen(false)}
+        defaultFarmerName={userProfile?.name || ""}
+        defaultFarmerPhone={userProfile?.phone || ""}
+      />
     </div>
   );
 }

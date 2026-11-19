@@ -6,6 +6,7 @@
     "nav": {
         "dashboard": "डैशबोर्ड",
         "cropDoctor": "फसल डॉक्टर",
+        "soilAnalysis": "मिट्टी परीक्षण व फसलें",
         "marketAnalyst": "बाजार विश्लेषक",
         "govtSchemes": "सरकारी योजनाएं",
         "weather": "मौसम",
@@ -50,6 +51,7 @@
         "farmer": "किसान",
         "quickLinks": {
             "cropDoctor": "फसल रोगों का तुरंत निदान करें।",
+            "soilAnalysis": "मिट्टी की फोटो से प्रकार, पोषक तत्व और उपयुक्त फसलें जानें।",
             "marketAnalyst": "वास्तविक समय मूल्य विश्लेषण प्राप्त करें।",
             "govtSchemes": "आपके लिए सरकारी योजनाएं खोजें।",
             "eLearning": "गाइड और ट्यूटोरियल ब्राउज़ करें।",
@@ -145,6 +147,47 @@
             "preventionLabel": "रोकथाम के उपाय",
             "sourceLabel": "पैथोलॉजी स्रोत",
             "retryButton": "दूसरी तस्वीर अपलोड करें"
+        }
+    },
+    "soilAnalysis": {
+        "title": "मिट्टी परीक्षण व फसल सलाहकार",
+        "description": "अपने खेत की मिट्टी की तस्वीर अपलोड करें, मिट्टी का प्रकार, पीएच, उर्वरता जानें और आईसीएआर (ICAR) दिशा-निर्देशों के अनुसार उपयुक्त फसलें पाएं।",
+        "client": {
+            "uploadTitle": "अपनी मिट्टी का परीक्षण करें",
+            "uploadDescription": "खेत की मिट्टी का फोटो लें, तस्वीर अपलोड करें या खेत का विवरण दें। AI तुरंत मिट्टी का प्रकार और उपयुक्त फसलें बताएगा।",
+            "imageLabel": "मिट्टी की फोटो अपलोड करें",
+            "chooseFile": "फोटो चुनें",
+            "changeFile": "फोटो बदलें",
+            "soilPreview": "मिट्टी का पूर्वावलोकन",
+            "descriptionLabel": "खेत का विवरण या अवलोकन (वैकल्पिक)",
+            "descriptionPlaceholder": "जैसे: 'बारिश के बाद खेत में पानी देर तक टिकता है, इंदौर में खेत है' या माइक दबाकर बोलें।",
+            "analyzing": "मिट्टी की जांच और फसलें मिलाई जा रही हैं...",
+            "analyzeButton": "मिट्टी जांचें और फसलें जानें",
+            "resultTitle": "मिट्टी परीक्षण परिणाम और उपयुक्त फसलें",
+            "soilType": "पहचाना गया मिट्टी का प्रकार",
+            "classification": "मृदा वर्गीकरण (ICAR)",
+            "confidence": "सटीकता / विश्वास स्तर",
+            "physicalProperties": "भौतिक गुण और बनावट",
+            "texture": "बनावट (Texture)",
+            "color": "रंग",
+            "estimatedPh": "अनुमानित pH मान",
+            "waterRetention": "नमी संचय क्षमता",
+            "drainage": "जल निकासी",
+            "organicMatter": "जैविक कार्बन / जीवांश",
+            "nutrientStatus": "NPK पोषक तत्व स्थिति",
+            "suitableCropsTitle": "इस मिट्टी के लिए सबसे उत्तम फसलें",
+            "cropsDescription": "मिट्टी की संरचना, जल धारण क्षमता और ICAR कृषि जलवायु अनुकूलता के आधार पर चुनी गई फसलें।",
+            "planInRecommender": "फसल सिफारिश में विस्तृत योजना बनाएं",
+            "unsuitableCropsTitle": "जोखिम भरी फसलें (इस मिट्टी में न लगाएं)",
+            "improvementTitle": "ICAR मिट्टी सुधार व पोषण सुझाव",
+            "listenReport": "मिट्टी रिपोर्ट सुनें",
+            "listenSummary": "ऑडियो सारांश",
+            "samplePrompt": "या डेमो मिट्टी के नमूने आजमाएं:",
+            "blackSoilSample": "काली कपास मिट्टी",
+            "alluvialSample": "जलोढ़ दोमट मिट्टी",
+            "redSoilSample": "लाल मिट्टी",
+            "sandySample": "रेतीली / बलुई मिट्टी",
+            "sourceBadge": "ICAR-IISS भोपाल व NBSS&LUP प्रमाणित"
         }
     },
     "marketAnalyst": {

@@ -11,8 +11,13 @@ export const groqClient = isGroqConfigured
   ? new Groq({ apiKey: groqApiKey.trim() })
   : null;
 
-export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
-export const FAST_GROQ_MODEL = "llama-3.1-8b-instant";
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
+export const FAST_GROQ_MODEL = "openai/gpt-oss-20b";
+export const CANDIDATE_GROQ_MODELS = [
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3.8-27b",
+];
 
 export interface GroqChatMessage {
   role: "system" | "user" | "assistant";
@@ -28,7 +33,7 @@ export interface CallGroqChatOptions {
 }
 
 /**
- * Call Groq Cloud API for ultra-fast LLM responses
+ * Call Groq Cloud API for ultra-fast LLM responses with automatic model fallback
  */
 export async function callGroqChat({
   messages,
@@ -41,18 +46,28 @@ export async function callGroqChat({
     throw new Error("GROQ_API_KEY is not configured in environment variables.");
   }
 
-  const completion = await groqClient.chat.completions.create({
-    model,
-    messages,
-    temperature,
-    max_tokens: maxTokens,
-    response_format: jsonMode ? { type: "json_object" } : undefined,
-  });
+  const modelsToTry = [model, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== model)];
+  let lastError: any = null;
 
-  const content = completion.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("Empty response received from Groq.");
+  for (const m of modelsToTry) {
+    try {
+      const completion = await groqClient.chat.completions.create({
+        model: m,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        response_format: jsonMode ? { type: "json_object" } : undefined,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (content && content.trim().length > 0) {
+        return content;
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Groq model ${m} failed:`, err?.message || err);
+    }
   }
 
-  return content;
+  throw lastError || new Error("All Groq models failed to generate response.");
 }

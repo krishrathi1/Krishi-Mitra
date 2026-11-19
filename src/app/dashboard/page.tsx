@@ -27,6 +27,7 @@ import {
   BookOpen,
   Wallet,
   Leaf,
+  Layers,
   ArrowRight,
   Link2,
 } from "lucide-react";
@@ -75,6 +76,12 @@ export default function DashboardPage() {
       description: t('dashboard.quickLinks.cropDoctor'),
       href: "/dashboard/crop-doctor",
       icon: HeartPulse,
+    },
+    {
+      title: t('nav.soilAnalysis') || "Soil Doctor & Crops",
+      description: t('dashboard.quickLinks.soilAnalysis') || "Upload soil photo to identify soil type & suitable crops.",
+      href: "/dashboard/soil-analysis",
+      icon: Layers,
     },
     {
       title: t('nav.cropRecommender'),

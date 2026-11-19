@@ -296,6 +296,18 @@ export function CropRecommenderClient() {
                   </SelectContent>
                 </Select>
               )} />
+              <div className="flex items-center justify-between text-xs mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  {isHi ? "मिट्टी का प्रकार नहीं जानते?" : "Don't know your soil type?"}
+                </span>
+                <Link
+                  href="/dashboard/soil-analysis"
+                  className="font-semibold text-primary underline hover:text-primary/80 flex items-center gap-0.5"
+                >
+                  {isHi ? "फोटो खींचकर जांचें" : "Upload photo to detect"} <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
 
             {/* ── STEP 5: Water Source ──────────────────────────────────────── */}
@@ -309,6 +321,18 @@ export function CropRecommenderClient() {
                   </SelectContent>
                 </Select>
               )} />
+              <div className="flex items-center justify-between text-xs mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  {isHi ? "मिट्टी का प्रकार नहीं जानते?" : "Don't know your soil type?"}
+                </span>
+                <Link
+                  href="/dashboard/soil-analysis"
+                  className="font-semibold text-primary underline hover:text-primary/80 flex items-center gap-0.5"
+                >
+                  {isHi ? "फोटो खींचकर जांचें" : "Upload photo to detect"} <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
 
             {/* ── STEP 6: Season ────────────────────────────────────────────── */}
@@ -322,6 +346,18 @@ export function CropRecommenderClient() {
                   </SelectContent>
                 </Select>
               )} />
+              <div className="flex items-center justify-between text-xs mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  {isHi ? "मिट्टी का प्रकार नहीं जानते?" : "Don't know your soil type?"}
+                </span>
+                <Link
+                  href="/dashboard/soil-analysis"
+                  className="font-semibold text-primary underline hover:text-primary/80 flex items-center gap-0.5"
+                >
+                  {isHi ? "फोटो खींचकर जांचें" : "Upload photo to detect"} <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
 
             {/* ── STEP 7: Previous Crop ──────────────────────────────────────── */}

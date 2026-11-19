@@ -6,6 +6,7 @@
     "nav": {
         "dashboard": "Dashboard",
         "cropDoctor": "Crop Doctor",
+        "soilAnalysis": "Soil Doctor & Crops",
         "marketAnalyst": "Market Analyst",
         "govtSchemes": "Govt Schemes",
         "weather": "Weather",
@@ -50,6 +51,7 @@
         "farmer": "Farmer",
         "quickLinks": {
             "cropDoctor": "Diagnose crop diseases instantly.",
+            "soilAnalysis": "Analyze soil photo to discover soil type, pH, nutrients & best crops.",
             "cropRecommender": "Get AI-powered crop suggestions.",
             "marketAnalyst": "Get real-time price analysis.",
             "govtSchemes": "Find government schemes for you.",
@@ -145,6 +147,47 @@
             "preventionLabel": "Preventive Measures",
             "sourceLabel": "Pathology Source",
             "retryButton": "Try Another Photo"
+        }
+    },
+    "soilAnalysis": {
+        "title": "Soil Doctor & Crop Advisor",
+        "description": "Upload a photo of your field soil or dirt to identify soil type, pH, fertility, and get AI-recommended crops with ICAR agronomic guidance.",
+        "client": {
+            "uploadTitle": "Analyze Your Soil",
+            "uploadDescription": "Take a photo of your farm soil, upload an image, or describe your field ground for instant ICAR-verified soil diagnosis.",
+            "imageLabel": "Upload Soil Photo",
+            "chooseFile": "Choose Soil Photo",
+            "changeFile": "Change Photo",
+            "soilPreview": "Soil photo preview",
+            "descriptionLabel": "Field Observations / Notes (Optional)",
+            "descriptionPlaceholder": "e.g., 'Soil stays wet after rain, located in Indore' or click the mic to speak.",
+            "analyzing": "Analyzing Soil & Matching Crops...",
+            "analyzeButton": "Analyze Soil & Recommend Crops",
+            "resultTitle": "Soil Analysis & Recommended Crops",
+            "soilType": "Identified Soil Type",
+            "classification": "Soil Classification (ICAR)",
+            "confidence": "Analysis Confidence",
+            "physicalProperties": "Physical Properties & Texture",
+            "texture": "Texture",
+            "color": "Color",
+            "estimatedPh": "Estimated pH",
+            "waterRetention": "Water Retention",
+            "drainage": "Drainage",
+            "organicMatter": "Organic Carbon / Matter",
+            "nutrientStatus": "NPK Nutrient Status",
+            "suitableCropsTitle": "Best Suitable Crops for this Soil",
+            "cropsDescription": "Ranked crops based on soil physical structure, water retention, and ICAR agro-climatic suitability.",
+            "planInRecommender": "Plan Cultivation in Crop Recommender",
+            "unsuitableCropsTitle": "Crops with High Risk (Avoid)",
+            "improvementTitle": "ICAR Soil Conditioning & Improvement Tips",
+            "listenReport": "Listen to Soil Report",
+            "listenSummary": "Audio Summary",
+            "samplePrompt": "Or try demo soil samples:",
+            "blackSoilSample": "Black Cotton Soil",
+            "alluvialSample": "Alluvial Domat",
+            "redSoilSample": "Red Soil",
+            "sandySample": "Sandy / Desert Soil",
+            "sourceBadge": "ICAR-IISS Bhopal & NBSS&LUP Verified"
         }
     },
     "marketAnalyst": {
