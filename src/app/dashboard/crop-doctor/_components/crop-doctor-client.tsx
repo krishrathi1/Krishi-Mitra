@@ -30,7 +30,6 @@ export function CropDoctorClient() {
   const { t, language } = useTranslation();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
-  const [visualSymptoms, setVisualSymptoms] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -41,7 +40,6 @@ export function CropDoctorClient() {
   const [activeAudio, setActiveAudio] = useState<{ id: 'diagnosis' | 'solutions'; isPlaying: boolean } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
 
   useEffect(() => {
     // Cleanup audio element and its event listeners
@@ -54,82 +52,7 @@ export function CropDoctorClient() {
     };
   }, []);
 
-  const extractVisualSymptoms = (ctx: CanvasRenderingContext2D, width: number, height: number): string => {
-    try {
-      const imgData = ctx.getImageData(0, 0, width, height);
-      const data = imgData.data;
-      let greenCount = 0;
-      let yellowCount = 0;
-      let brownRustCount = 0;
-      let whiteCount = 0;
-      let darkSpotCount = 0;
-      let totalSampled = 0;
-
-      for (let i = 0; i < data.length; i += 16) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-        if (a < 50) continue;
-        totalSampled++;
-
-        // Chlorophyll green
-        if (g > r * 1.1 && g > b * 1.1) {
-          greenCount++;
-        }
-        // Yellow stripe / chlorosis: high R and G, lower B
-        else if (r > 120 && g > 120 && b < 105 && Math.abs(r - g) < 55) {
-          yellowCount++;
-        }
-        // Brown / orange rust pustules: high R, moderate G, low B
-        else if (r > 110 && g < 120 && b < 80) {
-          brownRustCount++;
-        }
-        // White powdery mildew / white rust
-        else if (r > 180 && g > 180 && b > 180) {
-          whiteCount++;
-        }
-        // Dark necrotic blight spots
-        else if (r < 75 && g < 75 && b < 75) {
-          darkSpotCount++;
-        }
-      }
-
-      if (totalSampled === 0) return '';
-
-      const yellowRatio = yellowCount / totalSampled;
-      const rustRatio = brownRustCount / totalSampled;
-      const greenRatio = greenCount / totalSampled;
-      const whiteRatio = whiteCount / totalSampled;
-      const darkRatio = darkSpotCount / totalSampled;
-
-      // 1. Yellow stripes & rust pustules on cereal leaf (Wheat Yellow Stripe Rust)
-      if (yellowRatio > 0.04 || rustRatio > 0.025 || (yellowRatio + rustRatio > 0.06)) {
-        return 'Wheat crop leaf showing yellow stripe rust pustules (peela rattua) and chlorotic stripes along veins';
-      }
-
-      // 2. White blister or powdery patches (Mustard White Rust)
-      if (whiteRatio > 0.10 && greenRatio > 0.15) {
-        return 'Mustard crop leaf with white rust blister patches and fungal growth';
-      }
-
-      // 3. Dark necrotic blight spots / lesions (Late Blight / Blast)
-      if (darkRatio > 0.06) {
-        return 'Crop leaf showing dark necrotic blight spots with chlorotic halo';
-      }
-
-      // 4. General foliar spotting
-      if (greenRatio > 0.20) {
-        return 'Foliar leaf spotting and chlorosis on agricultural crop';
-      }
-
-      return 'Crop leaf showing disease symptoms';
-    } catch {
-      return '';
-    }
-  };
-
-  const compressImage = (file: File): Promise<{ dataUrl: string; symptoms: string }> => {
+  const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const img = new (window as any).Image();
       const objectUrl = URL.createObjectURL(file);
@@ -152,21 +75,17 @@ export function CropDoctorClient() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const symptoms = extractVisualSymptoms(ctx, width, height);
-          resolve({
-            dataUrl: canvas.toDataURL('image/jpeg', 0.82),
-            symptoms,
-          });
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
         } else {
           // Fallback to simple FileReader
           const reader = new FileReader();
-          reader.onloadend = () => resolve({ dataUrl: reader.result as string, symptoms: '' });
+          reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(file);
         }
       };
       img.onerror = () => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve({ dataUrl: reader.result as string, symptoms: '' });
+        reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       };
       img.src = objectUrl;
@@ -178,12 +97,8 @@ export function CropDoctorClient() {
     if (file) {
       setImagePreview(URL.createObjectURL(file));
       try {
-        const { dataUrl, symptoms } = await compressImage(file);
-        setImageData(dataUrl);
-        setVisualSymptoms(symptoms);
-        if (!description.trim() && symptoms) {
-          setDescription(symptoms);
-        }
+        const compressedUri = await compressImage(file);
+        setImageData(compressedUri);
       } catch (err) {
         console.error("Image compression error, using raw:", err);
         const reader = new FileReader();
@@ -337,7 +252,6 @@ export function CropDoctorClient() {
       const effectiveLang = language || 'hi';
       const requestData: DiagnoseCropDiseaseInput = {
         description: description.trim(),
-        visualSymptoms: visualSymptoms,
         language: effectiveLang,
       };
       if (imageData) {

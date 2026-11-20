@@ -419,6 +419,64 @@ export const VERIFIED_DISEASE_DATABASE: Record<string, VerifiedDiseaseRecord> = 
     documentationUrl: 'https://iari.res.in/',
     youtubeQuery: 'chilli leaf curl virus treatment icar',
   },
+  // 8. BANANA SIGATOKA LEAF SPOT
+  'banana_sigatoka': {
+    cropKey: 'banana',
+    cropName: {
+      en: 'Banana',
+      hi: 'केला',
+      pa: 'ਕੇਲਾ',
+      mr: 'केळी',
+      bn: 'কলা',
+      ta: 'வாழை',
+    },
+    diseaseKey: 'sigatoka_leaf_spot',
+    diseaseName: {
+      en: 'Sigatoka Leaf Spot',
+      hi: 'सिगाटोका पत्ती धब्बा रोग',
+      pa: 'ਸਿਗਾਟੋਕਾ ਪੱਤਾ ਧੱਬਾ ਰੋਗ',
+      mr: 'सिगाटोका करपा रोग',
+      bn: 'সিগাটোকা পাতার দাগ রোগ',
+      ta: 'சிகாடோகா இலைப்புள்ளி நோய்',
+    },
+    scientificName: 'Pseudocercospora musae (Mycosphaerella musicola)',
+    pathogenType: 'Fungal',
+    symptoms: {
+      en: 'Narrow, elliptical reddish-brown to dark brown necrotic spots with yellow halos; spots enlarge, coalesce and cause premature leaf drying.',
+      hi: 'पत्तियों पर पीले घेरे के साथ लाल-भूरे से गहरे भूरे रंग के अंडाकार धब्बे; धब्बे आपस में मिलकर पूरी पत्ती को सुखा देते हैं।',
+      pa: 'ਪੱਤਿਆਂ ਤੇ ਪੀਲੇ ਘੇਰੇ ਵਾਲੇ ਭੂਰੇ ਧੱਬੇ; ਧੱਬੇ ਵੱਡੇ ਹੋ ਕੇ ਪੱਤੇ ਸੁਕਾ ਦਿੰਦੇ ਹਨ।',
+      mr: 'पानांवर पिवळ्या कडा असलेले तपकिरी-काळे अंडाकृती डाग; डाग एकत्र येऊन पाने वाळतात.',
+      bn: 'পাতায় হলুদ বলয়যুক্ত বাদামী দাগ; দাগগুলো বড় হয়ে পাতা শুকিয়ে যায়।',
+      ta: 'இலைகளில் மஞ்சள் நிற வளையத்துடன் கூடிய நீள்வட்ட பழுப்பு நிற புள்ளிகள் தோன்றி இலைகள் கருகும்.',
+    },
+    biologicalRemedy: {
+      en: 'Prune and destroy severely infected leaves; spray mineral oil or Neem oil (10,000 ppm) @ 3 ml/L or Pseudomonas fluorescens @ 5 g/L.',
+      hi: 'अधिक संक्रमित पत्तियों को काटकर नष्ट करें; नीम तेल (10,000 ppm) 3 मिली/लीटर या स्यूडोमोनास फ्लोरेसेंस 5 ग्राम/लीटर का छिड़काव करें।',
+      pa: 'ਖ਼ਰਾਬ ਪੱਤੇ ਕੱਟ ਕੇ ਨਸ਼ਟ ਕਰੋ ਅਤੇ ਨਿੰਮ ਦੇ ਤੇਲ ਦਾ ਛਿੜਕਾਅ ਕਰੋ।',
+      mr: 'रोगट पाने कापून नष्ट करा; कडुनिंब तेल ३ मिली प्रति लिटर पाण्यात फवारावे.',
+      bn: 'আক্রান্ত পাতা কেটে ধ্বংস করুন এবং নিম তেল স্প্রে করুন।',
+      ta: 'பாதிக்கப்பட்ட இலைகளை வெட்டி அழிக்கவும்; வேப்ப எண்ணெய் தெளிக்கவும்.',
+    },
+    chemicalRemedy: {
+      en: 'Spray Propiconazole 25% EC @ 1 ml/L or Carbendazim 50% WP @ 1 g/L or Chlorothalonil 75% WP @ 2 g/L with sticker/spreader.',
+      hi: 'प्रोपिकोनाजोल 25% EC 1 मिली/लीटर या कार्बेन्डाजिम 50% WP 1 ग्राम/लीटर या क्लोरोथैलोनिल 75% WP 2 ग्राम/लीटर पानी में स्टीकर के साथ मिलाकर छिड़कें।',
+      pa: 'ਪ੍ਰੋਪੀਕੋਨਾਜ਼ੋਲ (1 ਮਿਲੀ/ਲਿਟਰ) ਜਾਂ ਕਾਰਬੈਂਡਾਜ਼ਿਮ (1 ਗ੍ਰਾਮ/ਲਿਟਰ) ਦਾ ਛਿੜਕਾਅ ਕਰੋ।',
+      mr: 'प्रोपिकोनाझोल १ मिली किंवा कार्बेन्डाझिम १ ग्रॅम प्रति लिटर पाण्यात स्टिकरसह फवारावे.',
+      bn: 'প্রোপিকোনাজোল ১ মিলি অথবা কার্বেনডাজিম ১ গ্রাম প্রতি লিটার জলে স্টিকারসহ স্প্রে করুন।',
+      ta: 'புரோபிகோனசோல் 1 மி.லி அல்லது கார்பெண்டாசிம் 1 கிராம்/லிட்டர் தண்ணீரில் தெளிக்கவும்.',
+    },
+    prevention: {
+      en: 'Maintain wide plant spacing (1.8m x 1.8m) for air circulation, avoid waterlogging, and provide clean drainage.',
+      hi: 'हवा के आवागमन हेतु उचित दूरी (1.8m x 1.8m) रखें, खेत में जलभराव न होने दें और उचित जल निकासी करें।',
+      pa: 'ਬੂਟਿਆਂ ਵਿੱਚ ਸਹੀ ਦੂਰੀ ਰੱਖੋ ਅਤੇ ਪਾਣੀ ਨਾ ਖੜ੍ਹਨ ਦਿਓ।',
+      mr: 'हवा खेळती राहण्यासाठी योग्य अंतर ठेवा आणि पाण्याचा निचरा व्यवस्थित करा.',
+      bn: 'গাছের মাঝে পর্যাপ্ত দূরত্ব বজায় রাখুন ও জল নিষ্কাশনের ব্যবস্থা করুন।',
+      ta: 'செடிகளுக்கு இடையே போதிய இடைவெளி விட்டு நடவும் மற்றும் வடிகால் வசதி செய்யவும்.',
+    },
+    source: 'ICAR-National Research Centre for Banana (NRCB), Tiruchirappalli',
+    documentationUrl: 'https://nrcb.icar.gov.in/',
+    youtubeQuery: 'banana sigatoka leaf spot treatment icar',
+  },
 };
 
 export interface DiseaseDetectionResult {
@@ -509,17 +567,14 @@ export function classifyPlantDisease(
         record: VERIFIED_DISEASE_DATABASE['mustard_white_rust'] || VERIFIED_DISEASE_DATABASE['wheat_yellow_rust'],
       };
     }
-  }
-
-  // 2. Intelligent Visual Fallback: If a photo is uploaded and AI cloud service is unreachable,
-  // return verified rabi crop pathology diagnosis (Wheat Yellow Rust) instead of an unhelpful error.
-  if (hasImage) {
-    return {
-      isPlant: true,
-      isConfident: true,
-      confidence: 88,
-      record: VERIFIED_DISEASE_DATABASE['wheat_yellow_rust'],
-    };
+    if (desc.includes('banana') || desc.includes('kela') || desc.includes('keli') || desc.includes('sigatoka') || desc.includes('केला')) {
+      return {
+        isPlant: true,
+        isConfident: true,
+        confidence: 93,
+        record: VERIFIED_DISEASE_DATABASE['banana_sigatoka'],
+      };
+    }
   }
 
   return buildLowConfidenceResult();

@@ -29,7 +29,6 @@ const DiagnoseCropDiseaseInputSchema = z.object({
       "A photo of a crop, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   description: z.string().optional().describe('A text or voice-based description of the crop issue.'),
-  visualSymptoms: z.string().optional().describe('Auto-extracted visual features from image canvas.'),
   language: z.string().describe('The language for the response (e.g., "en", "hi", "pa", "mr", "bn", "ta", "kn", "bho").'),
 });
 export type DiagnoseCropDiseaseInput = z.infer<typeof DiagnoseCropDiseaseInputSchema>;
@@ -82,8 +81,8 @@ CRITICAL RULES:
 1. FIRST check if this image is actually an agricultural crop, plant leaf, fruit, flower, stem, or grain.
    - If it is a person, animal, vehicle, tool, indoor room, or non-agricultural object, return:
      {"isPlant": false, "isConfident": false, "diagnosis": "Not a plant", "solutions": "", "lowConfidenceMessage": "This does not appear to be an agricultural crop or plant leaf. Please upload a clear photo of an affected plant leaf or crop."}
-2. ACCURATELY identify the specific crop visible in the image (e.g. Wheat / गेहूं / ਕਣਕ, Rice / Paddy / धान, Cotton / कपास, Tomato / टमाटर, Potato / आलू, Mustard / सरसों, Chilli / मिर्च, Maize / मक्का, Soybean / सोयाबीन, Sugarcane / गन्ना, etc.). NEVER misidentify a common cereal like Wheat as Chilli or vice-versa!
-3. Accurately identify the exact disease, pest damage, fungal infection, nutrient deficiency, or if it is a healthy plant (e.g. Yellow Stripe Rust, Spot Blotch, Brown Rust, Rice Blast, Sheath Blight, Late Blight, Pink Bollworm, Leaf Curl, etc.).
+2. ACCURATELY identify the specific crop visible in the image based on visual leaf morphology, shape, venation, and foliage (e.g. Banana / केला, Wheat / गेहूं, Rice / धान, Cotton / कपास, Tomato / टमाटर, Potato / आलू, Mustard / सरसों, Chilli / मिर्च, Maize / मक्का, Soybean / सोयाबीन, Sugarcane / गन्ना, Mango / आम, Citrus / नींबू, Apple / सेब, etc.).
+3. Accurately identify the exact disease, pest damage, fungal infection, nutrient deficiency, or if it is a healthy plant (e.g. Banana Sigatoka Leaf Spot, Wheat Yellow Stripe Rust, Rice Blast, Sheath Blight, Potato Late Blight, Tomato Blight, Cotton Bollworm, Chilli Leaf Curl, etc.).
 4. Provide the scientific binomial name of the pathogen or pest (e.g., Puccinia striiformis f. sp. tritici, Magnaporthe oryzae, Phytophthora infestans).
 5. Confidence score: integer between 70 and 99 reflecting diagnosis certainty.
 6. Detail the observed visual symptoms visible in the photo.
@@ -385,15 +384,13 @@ export async function diagnoseCropDisease(
   const validLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta', 'kn', 'bho'].includes(langKey) ? langKey : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta' | 'kn' | 'bho';
 
   const userDesc = input.description?.trim() || '';
-  const visualDesc = input.visualSymptoms?.trim() || '';
-  const effectiveDescription = userDesc || visualDesc;
 
   // 1. Primary Engine: Multimodal Gemini Vision (if photo is provided)
   if (input.photoDataUri && input.photoDataUri.startsWith('data:image')) {
     try {
       const visionResult = await callGeminiVisionDiagnosis(
         input.photoDataUri,
-        effectiveDescription,
+        userDesc,
         validLang
       );
       if (visionResult && visionResult.isConfident && visionResult.isPlant) {
@@ -405,9 +402,9 @@ export async function diagnoseCropDisease(
   }
 
   // 2. Secondary Engine: Groq / Gemini text diagnosis for symptoms
-  if (effectiveDescription.length > 0) {
+  if (userDesc.length > 0) {
     try {
-      const textResult = await callTextDiagnosis(effectiveDescription, validLang);
+      const textResult = await callTextDiagnosis(userDesc, validLang);
       if (textResult && textResult.isConfident && textResult.isPlant) {
         return textResult;
       }
@@ -417,7 +414,7 @@ export async function diagnoseCropDisease(
   }
 
   // 3. Fallback Engine: Verified ICAR Plant Pathology Knowledge Base
-  const classification = classifyPlantDisease(input.photoDataUri, effectiveDescription);
+  const classification = classifyPlantDisease(input.photoDataUri, userDesc);
 
   // If low confidence or unidentifiable, return honest guidance without fake guesses
   const fallbackLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta'].includes(validLang) ? validLang : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta';
