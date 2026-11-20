@@ -29,6 +29,7 @@ const DiagnoseCropDiseaseInputSchema = z.object({
       "A photo of a crop, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   description: z.string().optional().describe('A text or voice-based description of the crop issue.'),
+  visualSymptoms: z.string().optional().describe('Auto-extracted visual features from image canvas.'),
   language: z.string().describe('The language for the response (e.g., "en", "hi", "pa", "mr", "bn", "ta", "kn", "bho").'),
 });
 export type DiagnoseCropDiseaseInput = z.infer<typeof DiagnoseCropDiseaseInputSchema>;
@@ -115,16 +116,16 @@ Return strictly a valid JSON object matching this schema:
   // Models to attempt in order of latency, quota availability, and vision support
   const models = [
     'gemini-3.1-flash-lite-preview',
-    'gemini-3-flash-preview',
     'gemini-3.5-flash-lite',
+    'gemini-flash-latest',
+    'gemini-3-flash-preview',
     'gemini-3.8-flash',
-    'gemini-flash-lite-latest',
   ];
 
   for (const model of models) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 18000);
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
 
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`,
@@ -383,15 +384,19 @@ export async function diagnoseCropDisease(
   const langKey = (input.language || 'hi').toLowerCase();
   const validLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta', 'kn', 'bho'].includes(langKey) ? langKey : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta' | 'kn' | 'bho';
 
+  const userDesc = input.description?.trim() || '';
+  const visualDesc = input.visualSymptoms?.trim() || '';
+  const effectiveDescription = userDesc || visualDesc;
+
   // 1. Primary Engine: Multimodal Gemini Vision (if photo is provided)
   if (input.photoDataUri && input.photoDataUri.startsWith('data:image')) {
     try {
       const visionResult = await callGeminiVisionDiagnosis(
         input.photoDataUri,
-        input.description,
+        effectiveDescription,
         validLang
       );
-      if (visionResult) {
+      if (visionResult && visionResult.isConfident && visionResult.isPlant) {
         return visionResult;
       }
     } catch (visionErr) {
@@ -400,10 +405,10 @@ export async function diagnoseCropDisease(
   }
 
   // 2. Secondary Engine: Groq / Gemini text diagnosis for symptoms
-  if (input.description && input.description.trim().length > 0) {
+  if (effectiveDescription.length > 0) {
     try {
-      const textResult = await callTextDiagnosis(input.description.trim(), validLang);
-      if (textResult) {
+      const textResult = await callTextDiagnosis(effectiveDescription, validLang);
+      if (textResult && textResult.isConfident && textResult.isPlant) {
         return textResult;
       }
     } catch (textErr) {
@@ -412,7 +417,7 @@ export async function diagnoseCropDisease(
   }
 
   // 3. Fallback Engine: Verified ICAR Plant Pathology Knowledge Base
-  const classification = classifyPlantDisease(input.photoDataUri, input.description);
+  const classification = classifyPlantDisease(input.photoDataUri, effectiveDescription);
 
   // If low confidence or unidentifiable, return honest guidance without fake guesses
   const fallbackLang = (['en', 'hi', 'pa', 'mr', 'bn', 'ta'].includes(validLang) ? validLang : 'hi') as 'en' | 'hi' | 'pa' | 'mr' | 'bn' | 'ta';
